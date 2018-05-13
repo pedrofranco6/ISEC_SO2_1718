@@ -12,3 +12,7 @@ TrabalhoSO2/DLL/Debug/DLL.log
 *.sln
 *.exe
 *.dll
+*.ipch
+*.ipch
+*.ipch
+*.ipch
