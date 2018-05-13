@@ -1,0 +1,14 @@
+
+*.ipch
+*.opendb
+*.db
+*.ilk
+*.pdb
+TrabalhoSO2/DLL/Debug/DLL.log
+*.tlog
+*.obj
+*.idb
+*.log
+*.sln
+*.exe
+*.dll
