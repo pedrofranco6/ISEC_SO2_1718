@@ -1,6 +1,6 @@
 #include "DLL.h"
 
-
+#include <string.h>
 
 BOOL createFileMap() {
 
@@ -74,6 +74,31 @@ pJogo getGame()
 		return NULL;
 
 }
+
+
+BOOL writeString(int number)
+{
+	WaitForSingleObject(mutex, INFINITE);
+		viewMapFile->cmd = number;
+
+	ReleaseMutex(mutex);
+
+
+	return TRUE;
+}
+int readString()
+{
+
+
+	WaitForSingleObject(mutex, INFINITE);
+	int aux;
+	aux = viewMapFile->cmd;
+
+
+	ReleaseMutex(mutex);
+	return aux;
+}
+
 
 BOOL startGame() {
 

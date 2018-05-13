@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <windows.h>
 
+#define DLL_EXPORTS
+
+
 #ifdef DLL_EXPORTS
 #define DLL_IMP_API __declspec(dllexport)
 #else
@@ -33,6 +36,7 @@ typedef struct {
 	NaveDefensora navesDefensoras[2];
 	NaveInvasora navesInimigasBasicas[2];
 	NaveInvasora navesInimigasEsquiva[2];
+	int cmd;
 }Jogo, *pJogo;
 
 
@@ -40,3 +44,12 @@ HANDLE mapFile;
 pJogo viewMapFile;
 TCHAR mapName[] = TEXT("MapFile");
 HANDLE mutex;
+
+extern "C"
+{
+
+	DLL_IMP_API BOOL writeString(int number);
+	DLL_IMP_API int readString();
+	DLL_IMP_API BOOL startGame();
+
+}
