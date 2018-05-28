@@ -13,6 +13,9 @@
 #define DLL_IMP_API __declspec(dllimport)
 #endif
 
+#define MAXSIZE 24
+#define objSize 24
+TCHAR mapName[] = TEXT("fileMap");
 typedef struct {
 	char nome[10];
 	int id, duracao, raridade;
@@ -32,18 +35,40 @@ typedef struct {
 }NaveInvasora;
 
 typedef struct {
+	TCHAR who[24];
+	TCHAR command[objSize];
+	TCHAR nicknamePlayer[64];
+
+	int op;					
+	int numLocalPlayers;	
+	int nRows;
+	int nColumns;
+
+	int typeOfGame;		
+	int gameObjects;
+	int objects[9];
+	int objectsDuration;
+	int playerId;
+
+	int direction;
 	int dimX, dimY;
 	NaveDefensora navesDefensoras[2];
 	NaveInvasora navesInimigasBasicas[2];
 	NaveInvasora navesInimigasEsquiva[2];
-	int cmd;
-}Jogo, *pJogo;
+}data, *pData;
 
+typedef struct allData {
+	data data[20];
+	int pull;
+	int push;
+} allData, *pAllData;
 
-HANDLE mapFile;
-pJogo viewMapFile;
-TCHAR mapName[] = TEXT("MapFile");
-HANDLE mutex;
+typedef struct {
+	int pull;	//indice de escrita
+	int push; //indice de leitura
+	data data[20];
+
+}buffer, *pBuffer;
 
 extern "C"
 {

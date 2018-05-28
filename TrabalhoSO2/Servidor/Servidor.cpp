@@ -11,8 +11,10 @@ HANDLE threadTrinco;
 HANDLE handleMsgs;
 BOOL(*startgame) ();
 int (*message)();
-Jogo setUpJogo() {
-	Jogo jogo;
+
+
+data setUpJogo() {
+	data jogo;
 	jogo.dimX = 1000;
 	jogo.dimY = 1000;
 
@@ -38,7 +40,6 @@ DWORD WINAPI threadesquivas(LPVOID data) {
 	while (1) {
 		WaitForSingleObject(threadTrinco, INFINITE);
 		//send data
-
 		ReleaseMutex(threadTrinco);
 
 	}
@@ -48,17 +49,17 @@ DWORD WINAPI threadesquivas(LPVOID data) {
 
 DWORD WINAPI awaitMessages(LPVOID data) {
 
-	int option;
+	int option, optionAux = 0;
 	while (1) {
-
+		
 		option = message();
-		_tprintf(TEXT("\n chegou do gateway: %d\n"),option);
+		_tprintf(TEXT("\n chegou do gateway: %d\n"), optionAux);
+		}
 	}
 
-}
 
 
-void gerarNavesInimigas(Jogo jogo) {
+void gerarNavesInimigas(data jogo) {
 	int i;
 	int navesInimigasBasicas = sizeof(jogo.navesInimigasBasicas) / sizeof(jogo.navesInimigasBasicas[0]);
 	int navesInimigasEsquivas = sizeof(jogo.navesInimigasEsquiva) / sizeof(jogo.navesInimigasEsquiva[0]);
@@ -73,11 +74,13 @@ void gerarNavesInimigas(Jogo jogo) {
 	for (i = 0; i < navesInimigasEsquivas; i++) {
 		handleThreadsNavesInimigas[i + navesInimigasBasicas] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadesquivas, NULL, 0, &threadIds);
 	}
+	_tprintf(_T("Naves inimigas criadas com sucesso"));
+	
 }
 
 int main()
 {
-	Jogo jogo;
+	data jogo;
 	HANDLE hMapFile;
 
 	DLL = LoadLibrary(_T("DLL"));
@@ -103,7 +106,7 @@ int main()
 	handleMsgs = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)awaitMessages, NULL, 0, 0);
 
 	gerarNavesInimigas(jogo);
-	
+	while (1);
     return 0;
 }
 

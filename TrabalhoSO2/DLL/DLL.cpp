@@ -2,101 +2,152 @@
 
 #include <string.h>
 
+
+static allData allDataAux;
+
+
+HANDLE mapFileGame, mapFileBuffer;
+pData dataView;
+pBuffer bufferView;
+HANDLE hBuffer, mBuffer, sBuffR, sBuffW;
+HANDLE mutex, semaphoreReader, semaphoreWriter;
+
+
 BOOL createFileMap() {
 
-
-	mapFile = CreateFileMapping(
+	mapFileGame = CreateFileMapping(
 		INVALID_HANDLE_VALUE,
 		NULL,
 		PAGE_READWRITE,
 		0,
-		sizeof(Jogo),
-		mapName
+		sizeof(data),
+		_TEXT("fileMap")
 	);
-	if (mapFile == NULL) {
+	mapFileBuffer = CreateFileMapping(
+		INVALID_HANDLE_VALUE,
+		NULL,
+		PAGE_READWRITE,
+		0,
+		sizeof(buffer),
+		_TEXT("bufferMap")
+	);
+	if (mapFileGame == NULL && mapFileBuffer == NULL) {
 		_tprintf(TEXT("[DLL - ERROR] Creating File Map Object... (%d)\n"), GetLastError());
-		CloseHandle(mapFile);
+		CloseHandle(mapFileGame);
+		CloseHandle(mapFileBuffer);
 		return FALSE;
 	}
 	return TRUE;
-}
-
-
-BOOL openFileMap() {
-
-
-	mapFile = OpenFileMapping(
-		FILE_MAP_ALL_ACCESS,
-		FALSE,
-		mapName
-	);
-
-	if (mapFile == NULL) {
-		_tprintf(TEXT("[DLL - ERROR] Cannot Open File Mapping... (%d)\n"), GetLastError());
-		CloseHandle(mapFile);
-		return FALSE;
-	}
-
-	return TRUE;
-
 }
 
 BOOL createFileViewMap() {
-	viewMapFile = (pJogo)MapViewOfFile(
-		mapFile, 
+
+	dataView = (pData)MapViewOfFile(
+		mapFileGame,
 		FILE_MAP_ALL_ACCESS, 
 		0, 
 		0, 
-		sizeof(Jogo));
+		sizeof(data));
 
-	if (viewMapFile == NULL) {
+	if (dataView == NULL) {
 		_tprintf(_T("[DLL - ERROR] Cannot Open File View Mapping... (%d)\n"));
 		return FALSE;
 	}
+	return TRUE;
 }
 BOOL creatMutex() {
-
 	mutex = CreateMutex(NULL, FALSE, _T("mutex"));
 	if (mutex == NULL) {
 		_tprintf(_T("[DLL - ERROR] Cannot create mutex... (%d)\n"));
 		return FALSE;
 	}
+	return TRUE;
 }
 
-pJogo getGame()
-{
-	
-	if (viewMapFile != NULL)
-	{
-		return viewMapFile;
+BOOL createSeamphore(int sizeOfSemaphore) {
+
+
+	semaphoreWriter = CreateSemaphore(
+		NULL,
+		sizeOfSemaphore,
+		sizeOfSemaphore,
+		_T("semaphoreWriter")
+		);
+	semaphoreReader = CreateSemaphore(
+		NULL,
+		sizeOfSemaphore,
+		sizeOfSemaphore,
+		_T("semaphoreReader")
+	);
+
+	if (semaphoreWriter == NULL && semaphoreReader == NULL) {
+		_tprintf(TEXT("[ERROR] semaphore wasn't created... %d"), GetLastError());
+		return FALSE;
 	}
-	else
-		return NULL;
 
+	return TRUE;
+}
+
+BOOL openBuffer() //a ser chamado no gateway
+{
+	mapFileBuffer = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, _T("bufferMap"));;
+	if (hBuffer == NULL) {
+		_tprintf(_T("(DEBUG)DLL:Erro-> OPEN FILEMAP BUFFER\n"));
+		return FALSE;
+	}
+	bufferView = (pBuffer)MapViewOfFile(mapFileBuffer, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(buffer));
+	if (bufferView == NULL) {
+		_tprintf(_T("(DEBUG)DLL:Erro-> OPEN MAP VIEW BUFFER\n"));
+		return FALSE;
+	}
+
+	return TRUE;
 }
 
 
-BOOL writeString(int number)
-{
-	WaitForSingleObject(mutex, INFINITE);
-		viewMapFile->cmd = number;
 
+
+BOOL writeBuffer(data data)
+{
+	WaitForSingleObject(semaphoreReader, INFINITE);
+	WaitForSingleObject(mutex, INFINITE);
+
+	bufferView->data[bufferView->pull] = data;
+	bufferView->push = (bufferView->push + 1) % MAXSIZE;
 	ReleaseMutex(mutex);
+	ReleaseSemaphore(semaphoreReader, 1, NULL);
 
 
 	return TRUE;
 }
-int readString()
+data readBuffer()
 {
 
 
+	WaitForSingleObject(semaphoreWriter, INFINITE);
 	WaitForSingleObject(mutex, INFINITE);
-	int aux;
-	aux = viewMapFile->cmd;
+	data auxData;
 
+	auxData = bufferView->data[bufferView->push];
+	bufferView->pull = (bufferView->pull + 1) % MAXSIZE;
+
+
+	ReleaseMutex(mutex); //liberta mutex de buffer
+	ReleaseSemaphore(semaphoreReader, 1, NULL); //liberta uma posição no semaforo de escritas
+}
+
+void createBuffer() {
+
+}
+
+
+
+
+void releaseSyncHandles(HANDLE mutex, HANDLE semaphore) {
 
 	ReleaseMutex(mutex);
-	return aux;
+	ReleaseSemaphore(semaphore, 1, NULL);
+
 }
 
 
@@ -108,5 +159,8 @@ BOOL startGame() {
 
 	return true;
 }
+
+
+
 
 
