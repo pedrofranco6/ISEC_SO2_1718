@@ -36,7 +36,7 @@ typedef struct {
 
 typedef struct {
 	TCHAR who[24];
-	TCHAR command[objSize];
+	TCHAR command[20];
 	TCHAR nicknamePlayer[64];
 
 	int op;					
@@ -57,12 +57,6 @@ typedef struct {
 	NaveInvasora navesInimigasEsquiva[2];
 }data, *pData;
 
-typedef struct allData {
-	data data[20];
-	int pull;
-	int push;
-} allData, *pAllData;
-
 typedef struct {
 	int pull;	//indice de escrita
 	int push; //indice de leitura
@@ -70,11 +64,18 @@ typedef struct {
 
 }buffer, *pBuffer;
 
+#define bufferSize sizeof(buffer)
+#define dataSize sizeof(data)
 extern "C"
 {
 
-	DLL_IMP_API BOOL writeString(int number);
-	DLL_IMP_API int readString();
-	DLL_IMP_API BOOL startGame();
+	DLL_IMP_API BOOL createGame();
+	DLL_IMP_API BOOL openGame();
+	DLL_IMP_API HANDLE startSyncMutex();
+	DLL_IMP_API HANDLE startSyncSemaphore(int sizeOfSemaphore);
+	DLL_IMP_API void newBuffer();
+	DLL_IMP_API BOOL writeBuffer(data data);
+	DLL_IMP_API data readBuffer();
+	DLL_IMP_API void releaseSyncHandles(HANDLE mutex, HANDLE semaphore);
 
 }

@@ -10,7 +10,12 @@ DWORD threadIds;
 HANDLE threadTrinco;
 HANDLE handleMsgs;
 BOOL(*startgame) ();
-int (*message)();
+BOOL(*writeB)(data data);
+data(*readB) ();
+HANDLE hThreadSharedMemory;
+
+HANDLE eventReader;
+HANDLE eventWriter;
 
 
 data setUpJogo() {
@@ -47,13 +52,14 @@ DWORD WINAPI threadesquivas(LPVOID data) {
 	return 0;
 }
 
-DWORD WINAPI awaitMessages(LPVOID data) {
+DWORD WINAPI awaitMessages(LPVOID dados) {
 
-	int option, optionAux = 0;
+	int optionAux = 0;
+	data option;
 	while (1) {
 		
-		option = message();
-		_tprintf(TEXT("\n chegou do gateway: %d\n"), optionAux);
+		option = readB();
+		_tprintf(TEXT("\n chegou do gateway: %d\n"), option.op);
 		}
 	}
 
@@ -78,7 +84,73 @@ void gerarNavesInimigas(data jogo) {
 	
 }
 
-int main()
+
+
+DWORD WINAPI listenClientSharedMemory(LPVOID params) {
+	data dataGame;
+	eventReader = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventReader"));
+	eventWriter = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventWriter"));
+
+	while (1) {
+		data(*getData)();
+
+		//Wait for any client trigger the event by typing any option
+		WaitForSingleObject(eventReader, INFINITE);
+
+		
+		//GETDATA IN CORRECT PULL POSITION
+		getData = (data(*)()) GetProcAddress(DLL, "readBuffer");
+		if (getData == NULL) {
+			_tprintf(TEXT("[SHM ERROR] Loading getDataSHM function from DLL (%d)\n"), GetLastError());
+			return NULL;
+		}
+		dataGame = getData();
+		_tprintf(TEXT("Lido: %d"), dataGame.op);
+		ResetEvent(eventReader);
+	}
+}
+
+
+void initializeSharedMemory() {
+
+	pBuffer circularBufferPointer = NULL;
+
+	BOOL(*createFileMap)();
+	pBuffer(*getBuffer)();
+
+
+	_tprintf(TEXT("STARTING SHARED MEMORY....................\n"));
+
+	//CREATEFILEMAP
+	createFileMap = (BOOL(*)()) GetProcAddress(DLL, "createGame");
+	if (createFileMap == NULL) {
+		_tprintf(TEXT("[SHM ERROR] Loading createFileMapping function from DLL (%d)\n"), GetLastError());
+		return;
+	}
+
+	if (!createFileMap()) {
+		_tprintf(TEXT("[SHM ERROR] Creating File Map Object... (%d)"), GetLastError());
+		return;
+	}
+
+	//CREATE A THREAD RESPONSABLE FOR SHM ONLY
+	hThreadSharedMemory = CreateThread(
+		NULL,
+		0,
+		listenClientSharedMemory,
+		NULL,
+		0,
+		0);
+
+	if (hThreadSharedMemory == NULL) {
+		_tprintf(TEXT("[ERROR] Creating Shared Memory Thread... (%d)"), GetLastError());
+		return;
+	}
+	_tprintf(TEXT("Shared Memory has started correctly.......\n"));
+}
+
+
+int _tmain()
 {
 	data jogo;
 	HANDLE hMapFile;
@@ -91,22 +163,21 @@ int main()
 	else
 		_tprintf(_T("DLL lida com sucesso!\n"));
 
-	message = (int(*)())GetProcAddress(DLL, "readString");
-	startgame = (BOOL(*)())GetProcAddress(DLL, "startGame");
+	writeB = (BOOL(*)(data data))GetProcAddress(DLL, "writeBuffer");
+	readB = (data(*)())GetProcAddress(DLL, "readBuffer");
+	startgame = (BOOL(*)())GetProcAddress(DLL, "createGame");
 
-	if (message == NULL || startgame == NULL) {
+	if (writeB == NULL || readB == NULL || startgame == NULL) {
 		_tprintf(TEXT("[SHM ERROR] Loading function from DLL (%d)\n"), GetLastError());
 		return 0;
 	}
 
 	startgame();
-	jogo = setUpJogo();
-	hMapFile = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(jogo), TEXT("jogo"));
 
-	handleMsgs = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)awaitMessages, NULL, 0, 0);
+	initializeSharedMemory();
+	WaitForSingleObject(hThreadSharedMemory, INFINITE);
 
-	gerarNavesInimigas(jogo);
-	while (1);
     return 0;
 }
+
 
