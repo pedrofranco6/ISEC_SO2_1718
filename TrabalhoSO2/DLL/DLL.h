@@ -37,24 +37,23 @@ typedef struct {
 typedef struct {
 	TCHAR who[24];
 	TCHAR command[20];
-	TCHAR nicknamePlayer[64];
+	TCHAR playerName[64];
 
 	int op;					
 	int numLocalPlayers;	
 	int nRows;
 	int nColumns;
-
+	int fireTime;
+	int powerUpTime;
 	int typeOfGame;		
 	int gameObjects;
 	int objects[9];
 	int objectsDuration;
 	int playerId;
-
+	int difficult;
+	int lifes;
 	int direction;
 	int dimX, dimY;
-	NaveDefensora navesDefensoras[2];
-	NaveInvasora navesInimigasBasicas[2];
-	NaveInvasora navesInimigasEsquiva[2];
 }data, *pData;
 
 typedef struct {
