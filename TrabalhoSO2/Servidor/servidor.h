@@ -47,7 +47,7 @@
 #define BLOCK_SHIELD			6
 #define BLOCK_WALL				7
 #define BLOCK_DEFENCESHIP		8
-
+#define BLOCK_ENEMYSHIP			9
 #define NO_EFFECT		0
 #define EFFECT_ICE		1
 #define EFFECT_BATTERY	2
@@ -57,6 +57,8 @@
 
 #define SHIP_SPEED 100
 
+#define SHIP_BASIC 0
+#define SHIP_DODGE 1
 
 typedef struct {
 	int id;
@@ -65,12 +67,12 @@ typedef struct {
 	int	y;
 	int	vidas;
 	int effect;
-	int timeEffect;
 	int speed;
 	BOOL alive;
 }DefenceShip;
 
 typedef struct {
+	int id;
 	int x, y, vida, tipo;
 	BOOL blocked;
 	LPDWORD* threadId;
@@ -99,7 +101,6 @@ typedef struct Game {
 	int lifes;
 	int difficult;
 	int nRows, nColumns;
-	int objectPercentages[9];
 	TCHAR user[24];
 	DefenceShip playerShips[MAXCLIENTS];
 
