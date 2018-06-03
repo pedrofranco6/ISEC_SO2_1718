@@ -48,6 +48,7 @@
 #define BLOCK_WALL				7
 #define BLOCK_DEFENCESHIP		8
 #define BLOCK_ENEMYSHIP			9
+
 #define NO_EFFECT		0
 #define EFFECT_ICE		1
 #define EFFECT_BATTERY	2

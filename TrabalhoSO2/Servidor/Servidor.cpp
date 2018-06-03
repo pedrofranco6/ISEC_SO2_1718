@@ -58,43 +58,72 @@ DWORD WINAPI threadPowerUp(LPVOID data) {
 
 
 }
+
+DWORD WINAPI EnemyFire(LPVOID data) {
+	InvadeShip *enemyShip = (InvadeShip *)data;
+	int x = enemyShip->x, y = enemyShip->y + 1;
+	_tprintf(TEXT("\n chegou a thread: x: %d y: %d \n"), enemyShip->x, enemyShip->y);
+	game.boardGame[x][y] = BLOCK_BATTERY;
+	do {
+		Sleep(SHIP_SPEED * 10);
+		game.boardGame[x][y] = BLOCK_EMPTY;
+		y++;
+		game.boardGame[x][y] = BLOCK_BATTERY;
+	} while (y != game.nRows - 2);
+	Sleep(SHIP_SPEED * 10);
+	game.boardGame[x][y] = BLOCK_EMPTY;
+	return 0;
+
+}
+
 DWORD WINAPI threadbasicas(LPVOID data) {
-	threadTrinco = CreateMutex(NULL, FALSE, _T("threadMutex"));
-	int i = invadeShipId;
-	delete data;
+
+	int i = (int)data;
 	int x;
+	boolean changedpos = false;
 	int fire = game.fireTime;
 	game.invadeShips[i].tipo = SHIP_BASIC;
 	game.invadeShips[i].vida = 1;
 	int pos = 1;
 	do {
 		srand((unsigned int)time(NULL));
-		x = rand() % ((game.nColumns) - 1) + 1;
+		x = rand() % ((game.nRows) - 1) + 1;
 	} while (game.boardGame[x][1] != 0);
 	game.invadeShips[i].x = x;
-	game.invadeShips[i].y = 0;
-	game.boardGame[x][1] == BLOCK_ENEMYSHIP;
+	game.invadeShips[i].y = 1;
+	game.boardGame[x][1] = BLOCK_ENEMYSHIP;
 	while (1) {
-		WaitForSingleObject(threadTrinco, INFINITE);
-		
+
 		Sleep(SHIP_SPEED * 10);
-		if (x == game.nColumns - 1)
+		game.boardGame[game.invadeShips[i].x][game.invadeShips[i].y] = BLOCK_EMPTY;
+		
+		if (game.invadeShips[i].x == game.nRows - 2 && changedpos == false)
 		{
 			game.invadeShips[i].y++;
 			pos = -1;
+			changedpos = true;
+	
 		}
-		else if (x == 0) {
+		else if (game.invadeShips[i].x == 1 && changedpos == false) {
 			game.invadeShips[i].y++;
 			pos = 1;
+			changedpos = true;	
 		}
-		game.invadeShips[i].x += pos;
+		else {
+			game.invadeShips[i].x += pos;
+			changedpos = false;
+		}
+	//	_tprintf(TEXT("\n chegou do gateway: x: %d"), game.nRows - 1);
+//		_tprintf(TEXT("\n chegou do gateway: x: %d y: %d \n"), game.invadeShips[i].x, game.invadeShips[i].y);
+		game.boardGame[game.invadeShips[i].x][game.invadeShips[i].y] = BLOCK_ENEMYSHIP;
+
 		if (fire == 0) {
 			fire = game.fireTime;
-			//FIREEEEEEE()
+			CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)EnemyFire, &game.invadeShips[i], 0, &threadIds);
+
 		}
 		else
 			fire--;
-		ReleaseMutex(threadTrinco);
 
 	}
 
@@ -102,9 +131,8 @@ DWORD WINAPI threadbasicas(LPVOID data) {
 }
 
 DWORD WINAPI threadesquivas(LPVOID data) {
-	int i = (int) data;
+	int i = (int)data;
 	int aux;
-	_tprintf(TEXT("\n chegou do gateway: int : %d\n"), i);
 	int x = 0, y = 0;
 	int fire = 1.4*game.fireTime;
 	game.invadeShips[i].tipo = SHIP_DODGE;
@@ -112,33 +140,37 @@ DWORD WINAPI threadesquivas(LPVOID data) {
 	do {
 		srand((unsigned int)time(NULL));
 		x = rand() % ((game.nRows) - 1) + 1;
-		_tprintf(TEXT("\n chegou do gateway: x: %d\n"), x);
 	} while (game.boardGame[x][1] != 0);
 	game.invadeShips[i].x = x;
 	game.invadeShips[i].y = 1;
-	_tprintf(TEXT("\n chegou do gateway: %d %d\n"),x, game.invadeShips[i].y);
 	game.boardGame[x][1] = BLOCK_ENEMYSHIP;
 	while (1) {
+
 		Sleep(SHIP_SPEED * 11);
 		do {
 
-			do {
-				aux = rand() % 4;
-				switch (aux)
-				{
-				case(0):
-					y++; break;
-				case(1):
-					y--; break;
-				case(2):
-					x++; break;
-				case(3):
-					x--; break;
-				}
-			} while ((y + game.invadeShips[i].y <= game.nColumns-1 || x + game.invadeShips[i].x <= game.nRows-1));
-		} while (  game.boardGame[x + game.invadeShips[i].x][ y + game.invadeShips[i].y] != 0);
+
+			aux = rand() % 4;
+			x = 0, y = 0;
+			switch (aux)
+			{
+			case(0):
+				y = 1; break;
+			case(1):
+				y = -1; break;
+			case(2):
+				x = 1; break;
+			case(3):
+				x = -1; break;
+			}
+
+		} while (game.boardGame[x + game.invadeShips[i].x][y + game.invadeShips[i].y] != BLOCK_EMPTY);
+
 		game.boardGame[game.invadeShips[i].x][game.invadeShips[i].y] = BLOCK_EMPTY;
-		game.boardGame[x + game.invadeShips[i].x][y + game.invadeShips[i].y] = BLOCK_ENEMYSHIP;
+		game.invadeShips[i].x = x + game.invadeShips[i].x;
+		game.invadeShips[i].y = y + game.invadeShips[i].y;
+		_tprintf(TEXT("\n chegou do gateway: x: %d y: %d \n"), x, y);
+		game.boardGame[game.invadeShips[i].x][game.invadeShips[i].y] = BLOCK_ENEMYSHIP;
 		if (fire == 0) {
 			fire = 1.4*game.fireTime;
 			//FIREEEEEEE()
@@ -175,8 +207,8 @@ void initGame(data dataGame) {
 	game.lifes = dataGame.lifes;
 	game.fireTime = dataGame.fireTime;
 	game.powerUpTime = dataGame.powerUpTime;
-	game.nInvadesBasic = 0;
-	game.nInvadesDodge = 2;
+	game.nInvadesBasic = 2;
+	game.nInvadesDodge = 0;
 	game.boardGame = (int **)malloc(sizeof(int) * game.nRows);
 	for (int i = 0; i < game.nRows; i++) {
 		game.boardGame[i] = (int *)malloc(sizeof(int)* game.nColumns);
@@ -350,7 +382,7 @@ void gerarNavesInimigas() {
 
 	for (i = 0; i < navesInimigasBasicas; i++) {
 		invadeShipId = i;
-		handleThreadsNavesInimigas[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadbasicas, NULL, 0,&threadIds);
+		handleThreadsNavesInimigas[i] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadbasicas, (LPVOID)i, 0, &threadIds);
 	}
 
 	for (i = 0; i < navesInimigasEsquivas; i++) {
@@ -365,13 +397,12 @@ void gerarNavesInimigas() {
 
 
 
-
 DWORD WINAPI listenClientSharedMemory(LPVOID params) {
 	data dataGame;
 	eventReader = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventReader"));
 	eventWriter = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventWriter"));
 
-	do  {
+	do {
 		data(*getData)();
 
 		//Wait for any client trigger the event by typing any option
@@ -450,23 +481,24 @@ int _tmain()
 	startgame();
 
 	initializeSharedMemory();
-	WaitForSingleObject(hThreadSharedMemory, INFINITE);
+	//	WaitForSingleObject(hThreadSharedMemory, INFINITE);
 
 
 	auxGameForNow();
 
 	gerarNavesInimigas();
 	Sleep(3000);
-	system("cls");
-	while (1) {
+
+	do {
+		system("cls");
 		for (int j = 0; j < game.nRows; j++) {
 			for (int i = 0; i < game.nColumns; i++) {
 				_tprintf(_T("%d"), game.boardGame[i][j]);
 			}
 			_tprintf(_T("\n"));
 		}
-		Sleep(2000);
-	}
+		Sleep(SHIP_SPEED*10);
+	} while (1);
 	return 0;
 }
 
