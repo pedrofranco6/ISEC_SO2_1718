@@ -1,10 +1,11 @@
 #include "DLL.h"
-
+#include "../util.h"
 #include <string.h>
 
 HANDLE mapFileGame, mapFileBuffer;
 pData dataView;
 pBuffer bufferView;
+pGameInfo gameInfoView;
 HANDLE hBuffer, mBuffer, sBuffR, sBuffW;
 HANDLE mutex, semaphoreReader, semaphoreWriter;
 
@@ -16,7 +17,7 @@ BOOL createGame() {
 		NULL,
 		PAGE_READWRITE,
 		0,
-		dataSize,
+		GameInfoSize,
 		_TEXT("fileMap")
 	);
 	mapFileBuffer = CreateFileMapping(
@@ -48,6 +49,22 @@ BOOL createGame() {
 		return FALSE;
 	}
 
+	gameInfoView = (pGameInfo)MapViewOfFile(
+		mapFileGame,
+		FILE_MAP_ALL_ACCESS,
+		0,
+		0,
+		GameInfoSize
+	);
+
+	if (bufferView == NULL || gameInfoView == NULL) {
+		_tprintf(TEXT("[DLL - ERROR] Accessing File Map Object (BfferView)... (%d)\n"), GetLastError());
+		CloseHandle(mapFileBuffer);
+		CloseHandle(mapFileGame);
+		return FALSE;
+	}
+
+
 	newBuffer();
 	return TRUE;
 }
@@ -67,7 +84,7 @@ BOOL openGame() {
 		return FALSE;
 	}
 
-	dataView = (pData)MapViewOfFile(
+	gameInfoView = (pGameInfo)MapViewOfFile(
 		mapFile,
 		FILE_MAP_ALL_ACCESS,
 		0,
@@ -75,9 +92,9 @@ BOOL openGame() {
 		dataSize
 	);
 
-	if (dataView == NULL) {
+	if (gameInfoView == NULL) {
 		_tprintf(TEXT("[DLL - ERROR] Accessing File Map Object (dataView)... (%d)\n"), GetLastError());
-		CloseHandle(dataView);
+		CloseHandle(mapFile);
 		return FALSE;
 	}
 
@@ -90,6 +107,7 @@ BOOL openGame() {
 	if (bufferFile == NULL) {
 		_tprintf(TEXT("[DLL - ERROR] Cannot Open File Mapping... (%d)\n"), GetLastError());
 		CloseHandle(mapFile);
+		CloseHandle(bufferFile);
 		return FALSE;
 	}
 
@@ -174,6 +192,21 @@ data readBuffer()
 	bufferView->pull = (bufferView->pull + 1) % 20;
 
 	return auxData;
+}
+
+
+void setInfoSHM(GameInfo gi) {
+	gameInfoView->commandId = gi.commandId;
+	gameInfoView->nRows = 10;
+	gameInfoView->nColumns = 10;
+	gameInfoView->Id = gi.Id;
+
+	memcpy(gameInfoView->boardGame, gi.boardGame, sizeof(int) * 10 * 10);
+}
+
+GameInfo getInfoSHM() {
+	GameInfo gi = *gameInfoView;
+	return gi;
 }
 
 

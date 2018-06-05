@@ -1,7 +1,7 @@
 #pragma once
 
 #include <windows.h>
-
+#include "../util.h"
 // Defines
 #define MINIDPLAYER		1000
 #define BUFFSIZE		1024
@@ -113,11 +113,4 @@ typedef struct Game {
 
 } Game, *pGame;
 
-
-typedef struct GameInfo {
-	int Id;											
-	int commandId;						
-	int **boardGame;			
-	int nRows, nColumns;
-} GameInfo, *pGameInfo;
 

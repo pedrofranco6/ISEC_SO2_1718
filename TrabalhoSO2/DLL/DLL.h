@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <windows.h>
 
+#include "../util.h"
 #define DLL_EXPORTS
 
 
@@ -76,5 +77,6 @@ extern "C"
 	DLL_IMP_API BOOL writeBuffer(data data);
 	DLL_IMP_API data readBuffer();
 	DLL_IMP_API void releaseSyncHandles(HANDLE mutex, HANDLE semaphore);
-
+	DLL_IMP_API void setInfoSHM(GameInfo gi);
+	DLL_IMP_API GameInfo getInfoSHM();
 }

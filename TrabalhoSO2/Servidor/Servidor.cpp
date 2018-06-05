@@ -8,11 +8,13 @@
 HMODULE DLL;
 HANDLE *handleThreadsNavesInimigas;
 DWORD threadIds;
-HANDLE threadTrinco;
+HANDLE TrincoOfThreads;
 HANDLE handleMsgs;
 BOOL(*startgame) ();
 BOOL(*writeB)(data data);
 data(*readB) ();
+void(*setGameInfo) (GameInfo gi);
+HANDLE(*startMutex)();
 HANDLE hThreadSharedMemory;
 DWORD timerThread;
 HANDLE eventReader;
@@ -62,13 +64,36 @@ DWORD WINAPI threadPowerUp(LPVOID data) {
 DWORD WINAPI EnemyFire(LPVOID data) {
 	InvadeShip *enemyShip = (InvadeShip *)data;
 	int x = enemyShip->x, y = enemyShip->y + 1;
-	_tprintf(TEXT("\n chegou a thread: x: %d y: %d \n"), enemyShip->x, enemyShip->y);
 	game.boardGame[x][y] = BLOCK_BATTERY;
 	do {
 		Sleep(SHIP_SPEED * 10);
+		WaitForSingleObject(TrincoOfThreads, INFINITE);
 		game.boardGame[x][y] = BLOCK_EMPTY;
 		y++;
 		game.boardGame[x][y] = BLOCK_BATTERY;
+		ReleaseMutex(TrincoOfThreads);
+	} while (y != game.nRows - 2);
+	Sleep(SHIP_SPEED * 10);
+	game.boardGame[x][y] = BLOCK_EMPTY;
+	return 0;
+
+}
+
+DWORD WINAPI PowerUp(LPVOID data) {
+	Object *object = (Object *)data;
+	int x, y = 1;
+	do {
+		srand((unsigned int)time(NULL));
+		x = rand() % ((game.nColumns) - 1) + 1;
+	} while (game.boardGame[x][y] != 0);
+	game.boardGame[x][1] = object->block;
+	do {
+		Sleep(SHIP_SPEED * 10);
+		WaitForSingleObject(TrincoOfThreads, INFINITE);
+		game.boardGame[x][y] = BLOCK_EMPTY;
+		y++;
+		game.boardGame[x][y] = object->block;
+		ReleaseMutex(TrincoOfThreads);
 	} while (y != game.nRows - 2);
 	Sleep(SHIP_SPEED * 10);
 	game.boardGame[x][y] = BLOCK_EMPTY;
@@ -95,26 +120,27 @@ DWORD WINAPI threadbasicas(LPVOID data) {
 	while (1) {
 
 		Sleep(SHIP_SPEED * 10);
+		WaitForSingleObject(TrincoOfThreads, INFINITE);
 		game.boardGame[game.invadeShips[i].x][game.invadeShips[i].y] = BLOCK_EMPTY;
-		
+
 		if (game.invadeShips[i].x == game.nRows - 2 && changedpos == false)
 		{
 			game.invadeShips[i].y++;
 			pos = -1;
 			changedpos = true;
-	
+
 		}
 		else if (game.invadeShips[i].x == 1 && changedpos == false) {
 			game.invadeShips[i].y++;
 			pos = 1;
-			changedpos = true;	
+			changedpos = true;
 		}
 		else {
 			game.invadeShips[i].x += pos;
 			changedpos = false;
 		}
-	//	_tprintf(TEXT("\n chegou do gateway: x: %d"), game.nRows - 1);
-//		_tprintf(TEXT("\n chegou do gateway: x: %d y: %d \n"), game.invadeShips[i].x, game.invadeShips[i].y);
+		//	_tprintf(TEXT("\n chegou do gateway: x: %d"), game.nRows - 1);
+	//		_tprintf(TEXT("\n chegou do gateway: x: %d y: %d \n"), game.invadeShips[i].x, game.invadeShips[i].y);
 		game.boardGame[game.invadeShips[i].x][game.invadeShips[i].y] = BLOCK_ENEMYSHIP;
 
 		if (fire == 0) {
@@ -124,7 +150,7 @@ DWORD WINAPI threadbasicas(LPVOID data) {
 		}
 		else
 			fire--;
-
+		ReleaseMutex(TrincoOfThreads);
 	}
 
 	return 0;
@@ -147,6 +173,7 @@ DWORD WINAPI threadesquivas(LPVOID data) {
 	while (1) {
 
 		Sleep(SHIP_SPEED * 11);
+		WaitForSingleObject(TrincoOfThreads, INFINITE);
 		do {
 
 
@@ -177,7 +204,7 @@ DWORD WINAPI threadesquivas(LPVOID data) {
 		}
 		else
 			fire--;
-
+		ReleaseMutex(TrincoOfThreads);
 	}
 
 	return 0;
@@ -394,9 +421,6 @@ void gerarNavesInimigas() {
 }
 
 
-
-
-
 DWORD WINAPI listenClientSharedMemory(LPVOID params) {
 	data dataGame;
 	eventReader = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventReader"));
@@ -419,9 +443,12 @@ DWORD WINAPI listenClientSharedMemory(LPVOID params) {
 		_tprintf(TEXT("Lido: %d"), dataGame.op);
 		ResetEvent(eventReader);
 	} while ((dataGame.op != -1));
+	return 0;
 }
 
-
+void sendGameInfo(GameInfo gi) {
+	setGameInfo(gi);
+}
 void initializeSharedMemory() {
 
 	BOOL(*createFileMap)();
@@ -472,32 +499,50 @@ int _tmain()
 	writeB = (BOOL(*)(data data))GetProcAddress(DLL, "writeBuffer");
 	readB = (data(*)())GetProcAddress(DLL, "readBuffer");
 	startgame = (BOOL(*)())GetProcAddress(DLL, "createGame");
+	startMutex = (HANDLE(*)())GetProcAddress(DLL, "startSyncMutex");
+	setGameInfo = (void(*)(GameInfo gi))GetProcAddress(DLL, "setInfoSHM");
 
-	if (writeB == NULL || readB == NULL || startgame == NULL) {
-		_tprintf(TEXT("[SHM ERROR] Loading function from DLL (%d)\n"), GetLastError());
+	if (writeB == NULL || readB == NULL || startgame == NULL || setGameInfo == NULL) {
+		_tprintf(TEXT("[SHM ERROR] Loading functions from DLL (%d)\n"), GetLastError());
 		return 0;
 	}
 
 	startgame();
 
 	initializeSharedMemory();
-	//	WaitForSingleObject(hThreadSharedMemory, INFINITE);
+		//WaitForSingleObject(hThreadSharedMemory, INFINITE);
 
 
 	auxGameForNow();
 
 	gerarNavesInimigas();
 	Sleep(3000);
-
+	TrincoOfThreads = CreateMutex(NULL, FALSE, NULL);
 	do {
-		system("cls");
-		for (int j = 0; j < game.nRows; j++) {
-			for (int i = 0; i < game.nColumns; i++) {
-				_tprintf(_T("%d"), game.boardGame[i][j]);
+
+		Sleep(500);
+		WaitForSingleObject(TrincoOfThreads, INFINITE);
+
+		/*	system("cls");
+			for (int j = 0; j < game.nRows; j++) {
+				for (int i = 0; i < game.nColumns; i++) {
+					_tprintf(_T("%d"), game.boardGame[i][j]);
+				}
+				_tprintf(_T("\n"));
+			}*/
+		for (int i = 0; i < game.nRows; i++) {
+			for (int j = 0; j < game.nColumns; j++) {
+				gameInfo.boardGame[i][j] = game.boardGame[i][j];
 			}
-			_tprintf(_T("\n"));
 		}
-		Sleep(SHIP_SPEED*10);
+		gameInfo.Id = 1;
+		gameInfo.nColumns = 10;
+		gameInfo.nRows = 10;
+		sendGameInfo(gameInfo);
+		SetEvent(eventWriter);
+		_tprintf(TEXT("ENVIEI"));
+		ReleaseMutex(TrincoOfThreads);
+
 	} while (1);
 	return 0;
 }
