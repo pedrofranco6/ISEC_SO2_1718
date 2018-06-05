@@ -79,6 +79,29 @@ DWORD WINAPI EnemyFire(LPVOID data) {
 
 }
 
+
+BOOL hasColision(int x, int y, int type) {
+	if (type == 1) {
+
+		for (int i = x; i < x + 3; i++)
+			for (int j = y; j < y + 3; j++)
+				if (game.boardGame[i][j] != BLOCK_EMPTY)
+					return true;
+	}
+	else
+
+		return false;
+}
+void drawBlock(int x, int y, int type, int blockType) {
+
+	if (type == 1) {
+		for (int i = x; i < x + 3; i++)
+			for (int j = y; j < y + 3; j++)
+				game.boardGame[i][j] = blockType;
+	}
+}
+
+
 DWORD WINAPI PowerUp(LPVOID data) {
 	Object *object = (Object *)data;
 	int x, y = 1;
@@ -102,7 +125,7 @@ DWORD WINAPI PowerUp(LPVOID data) {
 }
 
 DWORD WINAPI threadbasicas(LPVOID data) {
-
+	WaitForSingleObject(TrincoOfThreads, INFINITE);
 	int i = (int)data;
 	int x;
 	boolean changedpos = false;
@@ -113,17 +136,19 @@ DWORD WINAPI threadbasicas(LPVOID data) {
 	do {
 		srand((unsigned int)time(NULL));
 		x = rand() % ((game.nRows) - 1) + 1;
-	} while (game.boardGame[x][1] != 0);
+	} while (hasColision(x,1,1) == true);
 	game.invadeShips[i].x = x;
 	game.invadeShips[i].y = 1;
-	game.boardGame[x][1] = BLOCK_ENEMYSHIP;
+	drawBlock(x, 1, 1, BLOCK_ENEMYSHIP);
+	ReleaseMutex(TrincoOfThreads);
+
 	while (1) {
+		WaitForSingleObject(TrincoOfThreads, INFINITE);
 
 		Sleep(SHIP_SPEED * 10);
-		WaitForSingleObject(TrincoOfThreads, INFINITE);
-		game.boardGame[game.invadeShips[i].x][game.invadeShips[i].y] = BLOCK_EMPTY;
+		drawBlock(game.invadeShips[i].x, game.invadeShips[i].y, 1, BLOCK_EMPTY);
 
-		if (game.invadeShips[i].x == game.nRows - 2 && changedpos == false)
+		if (game.invadeShips[i].x == game.nRows - 4 && changedpos == false)
 		{
 			game.invadeShips[i].y++;
 			pos = -1;
@@ -139,10 +164,7 @@ DWORD WINAPI threadbasicas(LPVOID data) {
 			game.invadeShips[i].x += pos;
 			changedpos = false;
 		}
-		//	_tprintf(TEXT("\n chegou do gateway: x: %d"), game.nRows - 1);
-	//		_tprintf(TEXT("\n chegou do gateway: x: %d y: %d \n"), game.invadeShips[i].x, game.invadeShips[i].y);
-		game.boardGame[game.invadeShips[i].x][game.invadeShips[i].y] = BLOCK_ENEMYSHIP;
-
+		drawBlock(game.invadeShips[i].x, game.invadeShips[i].y, 1, BLOCK_ENEMYSHIP);
 		if (fire == 0) {
 			fire = game.fireTime;
 			CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)EnemyFire, &game.invadeShips[i], 0, &threadIds);
@@ -157,23 +179,26 @@ DWORD WINAPI threadbasicas(LPVOID data) {
 }
 
 DWORD WINAPI threadesquivas(LPVOID data) {
+	WaitForSingleObject(TrincoOfThreads, INFINITE);
 	int i = (int)data;
 	int aux;
-	int x = 0, y = 0;
+	int x = 0, y = 1;
 	int fire = 1.4*game.fireTime;
 	game.invadeShips[i].tipo = SHIP_DODGE;
 	game.invadeShips[i].vida = 3;
 	do {
 		srand((unsigned int)time(NULL));
 		x = rand() % ((game.nRows) - 1) + 1;
-	} while (game.boardGame[x][1] != 0);
+	} while (hasColision(x, y, 1) == true);
 	game.invadeShips[i].x = x;
 	game.invadeShips[i].y = 1;
-	game.boardGame[x][1] = BLOCK_ENEMYSHIP;
-	while (1) {
+	drawBlock(x, y, 1, BLOCK_ENEMYSHIP);
+	ReleaseMutex(TrincoOfThreads);
 
-		Sleep(SHIP_SPEED * 11);
+	while (1) {
 		WaitForSingleObject(TrincoOfThreads, INFINITE);
+		Sleep(SHIP_SPEED * 11);
+		drawBlock(game.invadeShips[i].x, game.invadeShips[i].y, 1, BLOCK_EMPTY);
 		do {
 
 
@@ -191,16 +216,16 @@ DWORD WINAPI threadesquivas(LPVOID data) {
 				x = -1; break;
 			}
 
-		} while (game.boardGame[x + game.invadeShips[i].x][y + game.invadeShips[i].y] != BLOCK_EMPTY);
+		} while (hasColision(x + game.invadeShips[i].x, y + game.invadeShips[i].y, 1) == true);
+		_tprintf(TEXT("passou"));
 
-		game.boardGame[game.invadeShips[i].x][game.invadeShips[i].y] = BLOCK_EMPTY;
 		game.invadeShips[i].x = x + game.invadeShips[i].x;
 		game.invadeShips[i].y = y + game.invadeShips[i].y;
-		_tprintf(TEXT("\n chegou do gateway: x: %d y: %d \n"), x, y);
-		game.boardGame[game.invadeShips[i].x][game.invadeShips[i].y] = BLOCK_ENEMYSHIP;
+		drawBlock(game.invadeShips[i].x, game.invadeShips[i].y, 1, BLOCK_ENEMYSHIP);
 		if (fire == 0) {
 			fire = 1.4*game.fireTime;
-			//FIREEEEEEE()
+			CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)EnemyFire, &game.invadeShips[i], 0, &threadIds);
+
 		}
 		else
 			fire--;
@@ -234,8 +259,8 @@ void initGame(data dataGame) {
 	game.lifes = dataGame.lifes;
 	game.fireTime = dataGame.fireTime;
 	game.powerUpTime = dataGame.powerUpTime;
-	game.nInvadesBasic = 2;
-	game.nInvadesDodge = 0;
+	game.nInvadesBasic = 0;
+	game.nInvadesDodge = 2;
 	game.boardGame = (int **)malloc(sizeof(int) * game.nRows);
 	for (int i = 0; i < game.nRows; i++) {
 		game.boardGame[i] = (int *)malloc(sizeof(int)* game.nColumns);
@@ -256,8 +281,8 @@ void initGame(data dataGame) {
 void auxGameForNow() {
 	data dataGame;
 	dataGame.difficult = 1;
-	dataGame.nColumns = 10;
-	dataGame.nRows = 10;
+	dataGame.nColumns = 30;
+	dataGame.nRows = 30;
 	dataGame.direction = 10;
 	dataGame.fireTime = 5;
 	dataGame.gameObjects = 4;
@@ -370,12 +395,13 @@ DefenceShip initShip(int id) {
 		x = rand() % ((game.nColumns - game.nColumns / 20) - 1) + 1;
 		srand((unsigned int)time(NULL));
 		y = rand() % (game.nRows - 1) + 1;
-	} while (!game.boardGame[x][y]);
+	} while (hasColision(x, y, 1));
 	game.boardGame[x][y] = BLOCK_DEFENCESHIP;
 	defenceShip.id = id;
 	defenceShip.alive = TRUE;
 	defenceShip.x = x;
 	defenceShip.y = y;
+
 	defenceShip.speed = SHIP_SPEED;
 	defenceShip.effect = NO_EFFECT;
 	return defenceShip;
@@ -510,7 +536,7 @@ int _tmain()
 	startgame();
 
 	initializeSharedMemory();
-		//WaitForSingleObject(hThreadSharedMemory, INFINITE);
+	//WaitForSingleObject(hThreadSharedMemory, INFINITE);
 
 
 	auxGameForNow();
@@ -523,24 +549,23 @@ int _tmain()
 		Sleep(500);
 		WaitForSingleObject(TrincoOfThreads, INFINITE);
 
-		/*	system("cls");
+			system("cls");
 			for (int j = 0; j < game.nRows; j++) {
 				for (int i = 0; i < game.nColumns; i++) {
 					_tprintf(_T("%d"), game.boardGame[i][j]);
 				}
 				_tprintf(_T("\n"));
-			}*/
-		for (int i = 0; i < game.nRows; i++) {
+			}
+	/*	for (int i = 0; i < game.nRows; i++) {
 			for (int j = 0; j < game.nColumns; j++) {
 				gameInfo.boardGame[i][j] = game.boardGame[i][j];
 			}
-		}
+		} */
 		gameInfo.Id = 1;
-		gameInfo.nColumns = 10;
-		gameInfo.nRows = 10;
+		gameInfo.nColumns = 30;
+		gameInfo.nRows = 30;
 		sendGameInfo(gameInfo);
 		SetEvent(eventWriter);
-		_tprintf(TEXT("ENVIEI"));
 		ReleaseMutex(TrincoOfThreads);
 
 	} while (1);

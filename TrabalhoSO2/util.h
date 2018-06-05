@@ -10,7 +10,7 @@ typedef struct GameInfo {
 	int commandId;
 	int nRows;
 	int nColumns;
-	int boardGame[10][10];
+	int boardGame[50][50];
 
 } GameInfo, *pGameInfo;
 

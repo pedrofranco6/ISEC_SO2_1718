@@ -197,11 +197,11 @@ data readBuffer()
 
 void setInfoSHM(GameInfo gi) {
 	gameInfoView->commandId = gi.commandId;
-	gameInfoView->nRows = 10;
-	gameInfoView->nColumns = 10;
+	gameInfoView->nRows = 30;
+	gameInfoView->nColumns = 30;
 	gameInfoView->Id = gi.Id;
 
-	memcpy(gameInfoView->boardGame, gi.boardGame, sizeof(int) * 10 * 10);
+	memcpy(gameInfoView->boardGame, gi.boardGame, sizeof(int) * 30 * 30);
 }
 
 GameInfo getInfoSHM() {
