@@ -72,7 +72,7 @@ extern "C"
 	DLL_IMP_API BOOL createGame();
 	DLL_IMP_API BOOL openGame();
 	DLL_IMP_API HANDLE startSyncMutex();
-	DLL_IMP_API HANDLE startSyncSemaphore(int sizeOfSemaphore);
+	DLL_IMP_API HANDLE startSyncSemaphore(LPCWSTR semaphoreName);
 	DLL_IMP_API void newBuffer();
 	DLL_IMP_API BOOL writeBuffer(data data);
 	DLL_IMP_API data readBuffer();

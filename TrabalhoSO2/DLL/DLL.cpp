@@ -141,14 +141,14 @@ HANDLE startSyncMutex() {
 
 	return mutex;
 }
-HANDLE startSyncSemaphore(int sizeOfSemaphore) {
+HANDLE startSyncSemaphore(LPCWSTR semaphoreName) {
 	HANDLE semaphore;
 
 	semaphore = CreateSemaphore(
 		NULL,
-		sizeOfSemaphore,
-		bufferSize,
-		NULL);
+		0,
+		20,
+		semaphoreName);
 
 	if (semaphore == NULL) {
 		_tprintf(TEXT("[ERROR] semaphore wasn't created... %d"), GetLastError());

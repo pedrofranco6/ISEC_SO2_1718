@@ -15,6 +15,7 @@ BOOL(*writeB)(data data);
 data(*readB) ();
 void(*setGameInfo) (GameInfo gi);
 HANDLE(*startMutex)();
+HANDLE(*startSemaphore)(LPCWSTR semaphoreName);
 HANDLE hThreadSharedMemory;
 DWORD timerThread;
 HANDLE eventReader;
@@ -22,6 +23,7 @@ HANDLE eventWriter;
 HANDLE users[MAXCLIENTS];
 Game game;
 GameInfo gameInfo;
+HANDLE canWrite, canRead;
 int invadeShipId;
 data setUpJogo() {
 	data jogo;
@@ -29,6 +31,39 @@ data setUpJogo() {
 	jogo.dimY = 1000;
 
 	return jogo;
+}
+
+BOOL hasColision(int x, int y, int type) {
+	if (type == 1) {
+
+		for (int i = x; i < x + 3; i++)
+			for (int j = y; j < y + 3; j++)
+				if (game.boardGame[i][j] != BLOCK_EMPTY)
+					return true;
+	}
+	else if (type == 2) {
+
+		for (int i = x; i < x + 2; i++)
+			for (int j = y; j < y + 2; j++)
+				if (game.boardGame[i][j] != BLOCK_EMPTY)
+					return true;
+	}
+	else
+
+		return false;
+}
+void drawBlock(int x, int y, int type, int blockType) {
+
+	if (type == 1) {
+		for (int i = x; i < x + 3; i++)
+			for (int j = y; j < y + 3; j++)
+				game.boardGame[i][j] = blockType;
+	}
+	else if (type == 2) {
+		for (int i = x; i < x + 2; i++)
+			for (int j = y; j < y + 2; j++)
+				game.boardGame[i][j] = blockType;
+	}
 }
 
 DWORD WINAPI threadPowerUp(LPVOID data) {
@@ -63,7 +98,7 @@ DWORD WINAPI threadPowerUp(LPVOID data) {
 
 DWORD WINAPI EnemyFire(LPVOID data) {
 	InvadeShip *enemyShip = (InvadeShip *)data;
-	int x = enemyShip->x, y = enemyShip->y + 1;
+	int x = enemyShip->x + 2, y = enemyShip->y + + 3;
 	game.boardGame[x][y] = BLOCK_BATTERY;
 	do {
 		Sleep(SHIP_SPEED * 10);
@@ -80,26 +115,7 @@ DWORD WINAPI EnemyFire(LPVOID data) {
 }
 
 
-BOOL hasColision(int x, int y, int type) {
-	if (type == 1) {
 
-		for (int i = x; i < x + 3; i++)
-			for (int j = y; j < y + 3; j++)
-				if (game.boardGame[i][j] != BLOCK_EMPTY)
-					return true;
-	}
-	else
-
-		return false;
-}
-void drawBlock(int x, int y, int type, int blockType) {
-
-	if (type == 1) {
-		for (int i = x; i < x + 3; i++)
-			for (int j = y; j < y + 3; j++)
-				game.boardGame[i][j] = blockType;
-	}
-}
 
 
 DWORD WINAPI PowerUp(LPVOID data) {
@@ -108,18 +124,18 @@ DWORD WINAPI PowerUp(LPVOID data) {
 	do {
 		srand((unsigned int)time(NULL));
 		x = rand() % ((game.nColumns) - 1) + 1;
-	} while (game.boardGame[x][y] != 0);
-	game.boardGame[x][1] = object->block;
+	} while (hasColision(0,0,2) != 0);
+	drawBlock(x, y, 2, object->block);
 	do {
 		Sleep(SHIP_SPEED * 10);
 		WaitForSingleObject(TrincoOfThreads, INFINITE);
-		game.boardGame[x][y] = BLOCK_EMPTY;
+		drawBlock(x, y, 2, BLOCK_EMPTY);
 		y++;
-		game.boardGame[x][y] = object->block;
+		drawBlock(x, y, 2, object->block);
 		ReleaseMutex(TrincoOfThreads);
 	} while (y != game.nRows - 2);
 	Sleep(SHIP_SPEED * 10);
-	game.boardGame[x][y] = BLOCK_EMPTY;
+	drawBlock(x, y, 2, BLOCK_EMPTY);
 	return 0;
 
 }
@@ -449,14 +465,17 @@ void gerarNavesInimigas() {
 
 DWORD WINAPI listenClientSharedMemory(LPVOID params) {
 	data dataGame;
+	HANDLE canWrite, canRead;
 	eventReader = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventReader"));
 	eventWriter = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventWriter"));
+	canWrite = startSemaphore(L"writeSemaphore");
+	canRead = startSemaphore(L"readSemaphore");
 
 	do {
 		data(*getData)();
 
 		//Wait for any client trigger the event by typing any option
-		WaitForSingleObject(eventReader, INFINITE);
+		WaitForSingleObject(canRead, INFINITE);
 
 
 		//GETDATA IN CORRECT PULL POSITION
@@ -467,7 +486,7 @@ DWORD WINAPI listenClientSharedMemory(LPVOID params) {
 		}
 		dataGame = getData();
 		_tprintf(TEXT("Lido: %d"), dataGame.op);
-		ResetEvent(eventReader);
+		ReleaseSemaphore(canWrite, 1, NULL);
 	} while ((dataGame.op != -1));
 	return 0;
 }
@@ -527,8 +546,8 @@ int _tmain()
 	startgame = (BOOL(*)())GetProcAddress(DLL, "createGame");
 	startMutex = (HANDLE(*)())GetProcAddress(DLL, "startSyncMutex");
 	setGameInfo = (void(*)(GameInfo gi))GetProcAddress(DLL, "setInfoSHM");
-
-	if (writeB == NULL || readB == NULL || startgame == NULL || setGameInfo == NULL) {
+	startSemaphore = (HANDLE(*)(LPCWSTR semaphoreName))GetProcAddress(DLL, "startSyncSemaphore");
+	if (writeB == NULL || readB == NULL || startgame == NULL || setGameInfo == NULL || startSemaphore == NULL) {
 		_tprintf(TEXT("[SHM ERROR] Loading functions from DLL (%d)\n"), GetLastError());
 		return 0;
 	}
@@ -536,7 +555,7 @@ int _tmain()
 	startgame();
 
 	initializeSharedMemory();
-	//WaitForSingleObject(hThreadSharedMemory, INFINITE);
+	WaitForSingleObject(hThreadSharedMemory, INFINITE);
 
 
 	auxGameForNow();
@@ -546,7 +565,7 @@ int _tmain()
 	TrincoOfThreads = CreateMutex(NULL, FALSE, NULL);
 	do {
 
-		Sleep(500);
+		Sleep(1000);
 		WaitForSingleObject(TrincoOfThreads, INFINITE);
 
 			system("cls");
