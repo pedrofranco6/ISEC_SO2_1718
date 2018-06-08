@@ -35,27 +35,6 @@ typedef struct {
 	LPDWORD* threadId;
 }NaveInvasora;
 
-typedef struct {
-	TCHAR who[24];
-	TCHAR command[20];
-	TCHAR playerName[64];
-
-	int op;					
-	int numLocalPlayers;	
-	int nRows;
-	int nColumns;
-	int fireTime;
-	int powerUpTime;
-	int typeOfGame;		
-	int gameObjects;
-	int objects[9];
-	int objectsDuration;
-	int playerId;
-	int difficult;
-	int lifes;
-	int direction;
-	int dimX, dimY;
-}data, *pData;
 
 typedef struct {
 	int pull;	//indice de escrita

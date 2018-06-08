@@ -13,6 +13,7 @@
 #define MAXCLIENTS  20
 #define MAXSHIPS	20 
 #define BUFFERSIZE	20
+#define ALL_PLAYERS 100
 
 #define EXIT			100
 #define CREATE_GAME		101
@@ -20,7 +21,7 @@
 #define SCORES			103
 #define START_GAME		104
 #define MOVE_SPACE		105
-#define MOVE_SPACE2 	106
+
 #define GAME_OVER		107
 #define REFRESH_BOARD	108
 
@@ -77,6 +78,7 @@ typedef struct {
 	int x, y, vida, tipo;
 	BOOL blocked;
 	LPDWORD* threadId;
+	BOOL alive;
 }InvadeShip;
 
 
@@ -113,4 +115,32 @@ typedef struct Game {
 
 } Game, *pGame;
 
+//init
+void initializeSharedMemory();
+void gerarNavesInimigas();
+Objects initRandomObject();
+void StartPlayerShips();
+DefenceShip initShip(int id);
 
+//map/game
+void moveShip(int id, int dir);
+BOOL hasColision(int x, int y, int type);
+void drawBlock(int x, int y, int type, int blockType);
+void ObjectEffect(int block, int player);
+
+//Interactions
+void GameInfoSend();
+void manageCommands(data dataGame);
+void auxGameForNow();
+void joinGame(data dataGame);
+void sendGameInfo(GameInfo gi);
+
+//THREADS
+DWORD WINAPI gameThread(LPVOID params);
+DWORD WINAPI threadPowerUp(LPVOID data);
+DWORD WINAPI EnemyFire(LPVOID data);
+DWORD WINAPI PowerUp(LPVOID data);
+DWORD WINAPI threadbasicas(LPVOID data);
+DWORD WINAPI threadesquivas(LPVOID data);
+DWORD WINAPI awaitMessages(LPVOID dados);
+DWORD WINAPI listenClientSharedMemory(LPVOID params);

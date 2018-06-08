@@ -5,33 +5,158 @@
 #include <time.h>
 #include "../DLL/DLL.h"
 #include "servidor.h"
+#include "resource.h"
+
+// CONFIG 
+HANDLE users[MAXCLIENTS];
+HINSTANCE hThisInst;
+int windowMode = 0;
+HWND hWnd;
 HMODULE DLL;
-HANDLE *handleThreadsNavesInimigas;
-DWORD threadIds;
-HANDLE TrincoOfThreads;
-HANDLE handleMsgs;
+
+// GAME
+Game game;
+GameInfo gameInfo;
+
+int invadeShipId;
+//DLL FUNCTIONS
 BOOL(*startgame) ();
 BOOL(*writeB)(data data);
 data(*readB) ();
 void(*setGameInfo) (GameInfo gi);
 HANDLE(*startMutex)();
 HANDLE(*startSemaphore)(LPCWSTR semaphoreName);
+
+// THREADS-MUTEX HANDLES
+HANDLE GameThread;
+HANDLE *handleThreadsNavesInimigas;
+HANDLE TrincoOfThreads;
+DWORD threadIds;
+HANDLE handleMsgs;
 HANDLE hThreadSharedMemory;
 DWORD timerThread;
 HANDLE eventReader;
 HANDLE eventWriter;
-HANDLE users[MAXCLIENTS];
-Game game;
-GameInfo gameInfo;
 HANDLE canWrite, canRead;
-int invadeShipId;
-data setUpJogo() {
-	data jogo;
-	jogo.dimX = 1000;
-	jogo.dimY = 1000;
 
-	return jogo;
+// FUNCTIONS
+void GameInfoSend() {
+	WaitForSingleObject(TrincoOfThreads, INFINITE);
+	gameInfo.commandId = REFRESH_BOARD;
+	gameInfo.Id = ALL_PLAYERS;	// For all players see
+	gameInfo.nRows = game.nRows;
+	gameInfo.nColumns = game.nColumns;
+
+	for (int i = 0; i < game.nRows; i++) {
+		for (int j = 0; j < game.nColumns; j++) {
+			gameInfo.boardGame[i][j] = game.boardGame[i][j];
+		}
+	}
+	sendGameInfo(gameInfo);
+	SetEvent(eventReader);
+	ReleaseMutex(TrincoOfThreads);
 }
+
+
+DWORD WINAPI gameThread(LPVOID params) {
+	_tprintf(TEXT("\n-----GAMETHREAD----\n"));
+	game.running = 1;
+	//	gameCount = 0;
+
+	while (game.running == 1) {
+		//	gameCount++;
+		//	moveShips();
+		//	manageObjects();
+
+		//	updateGameInfoBoard();
+		GameInfoSend();
+
+		//	verifyEndGame();
+
+		Sleep(450);
+
+	}
+	return 0;
+}
+
+BOOL endGame() {
+
+	for (int i = 0; i < MAXCLIENTS; i++)
+	{
+		if (game.playerShips[i].alive) {
+			return FALSE;
+		}
+	}
+	for (int i = 0; i < MAXSHIPS; i++)
+	{
+		if (game.invadeShips[i].alive) {
+			return FALSE;
+		}
+	}
+
+
+	game.Created = FALSE;
+	game.running = FALSE;
+	return TRUE;
+}
+
+
+void moveShip(int id, int dir) {
+	int i;
+	for (i = 0; i < MAXCLIENTS; i++) {
+		if (game.playerShips[i].id == id && game.playerShips[i].alive) {
+			break;
+		}
+	}
+	if (game.playerShips[i].effect == EFFECT_ALCOOL) {
+		switch (dir)
+		{
+		case RIGHT:
+			dir = LEFT;
+			break;
+		case LEFT:
+			dir = RIGHT;
+			break;
+		case UP:
+			dir = DOWN;
+			break;
+		case DOWN:
+			dir = UP;
+			break;
+		default:
+			break;
+		}
+		//FALTA MOVER
+	}
+}
+
+void manageCommands(data dataGame) {
+	switch (dataGame.op) {
+	case EXIT:
+		_tprintf(TEXT("Goodbye.."));
+		break;
+
+		break;
+	case JOIN_GAME:
+		if (game.Created && !game.running) {
+			joinGame(dataGame);
+		}
+		else {
+			gameInfo.commandId = ERROR_CANNOT_JOIN_GAME;
+			gameInfo.Id = dataGame.playerId;
+			setGameInfo(gameInfo);
+		}
+		break;
+	case SCORES:
+		break;
+	case MOVE_SPACE:
+		moveShip(dataGame.playerId, dataGame.direction);
+		break;
+	default:
+		break;
+	}
+}
+
 
 BOOL hasColision(int x, int y, int type) {
 	if (type == 1) {
@@ -98,7 +223,7 @@ DWORD WINAPI threadPowerUp(LPVOID data) {
 
 DWORD WINAPI EnemyFire(LPVOID data) {
 	InvadeShip *enemyShip = (InvadeShip *)data;
-	int x = enemyShip->x + 2, y = enemyShip->y + + 3;
+	int x = enemyShip->x + 2, y = enemyShip->y + +3;
 	game.boardGame[x][y] = BLOCK_BATTERY;
 	do {
 		Sleep(SHIP_SPEED * 10);
@@ -124,7 +249,7 @@ DWORD WINAPI PowerUp(LPVOID data) {
 	do {
 		srand((unsigned int)time(NULL));
 		x = rand() % ((game.nColumns) - 1) + 1;
-	} while (hasColision(0,0,2) != 0);
+	} while (hasColision(0, 0, 2) != 0);
 	drawBlock(x, y, 2, object->block);
 	do {
 		Sleep(SHIP_SPEED * 10);
@@ -152,7 +277,7 @@ DWORD WINAPI threadbasicas(LPVOID data) {
 	do {
 		srand((unsigned int)time(NULL));
 		x = rand() % ((game.nRows) - 1) + 1;
-	} while (hasColision(x,1,1) == true);
+	} while (hasColision(x, 1, 1) == true);
 	game.invadeShips[i].x = x;
 	game.invadeShips[i].y = 1;
 	drawBlock(x, 1, 1, BLOCK_ENEMYSHIP);
@@ -317,10 +442,10 @@ Objects initRandomObject() {
 	srand((unsigned int)time(NULL));
 	do {
 		x = rand() % game.nColumns;
-	} while (game.boardGame[x][0] != 0);
+	} while (game.boardGame[x][1] != 0);
 
 	aux.x = x;
-	aux.y = 0;
+	aux.y = 1;
 	aux.duration = game.objectsDuration;
 	int nGenerated = rand() % 100 + 1;
 
@@ -328,41 +453,39 @@ Objects initRandomObject() {
 
 	}
 	else if (nGenerated < 50 && nGenerated > 25) {
-		game.boardGame[x][0] = BLOCK_SHIELD;
+		game.boardGame[x][1] = BLOCK_SHIELD;
 		aux.block = BLOCK_SHIELD;
 	}
 	else if (nGenerated < 65 && nGenerated > 50) {
-		game.boardGame[x][0] = BLOCK_MORE;
+		game.boardGame[x][1] = BLOCK_MORE;
 		aux.block = BLOCK_MORE;
 	}
 	else if (nGenerated < 80 && nGenerated > 65) {
-		game.boardGame[x][0] = BLOCK_ICE;
+		game.boardGame[x][1] = BLOCK_ICE;
 		aux.block = BLOCK_ICE;
 	}
 	else if (nGenerated < 95 && nGenerated > 80) {
-		game.boardGame[x][0] = BLOCK_BATTERY;
+		game.boardGame[x][1] = BLOCK_BATTERY;
 		aux.block = BLOCK_BATTERY;
 	}
 	else if (nGenerated < 95 && nGenerated > 80) {
-		game.boardGame[x][0] = BLOCK_ALCOOL;
+		game.boardGame[x][1] = BLOCK_ALCOOL;
 		aux.block = BLOCK_ALCOOL;
 	}
 	else {
-		_tprintf(_T("Error creating objects"));
+		_tprintf(_T("Error creating object"));
 	}
 	return aux;
 }
 
 
-void initObjects() {
-
-	for (int i = 0; i < game.nObjects; i++)
-	{
-		game.object[i] = initRandomObject();
+//START ALL CLIENTS WITH NULL
+void StartPlayerShips() {
+	for (int i = 0; i < MAXCLIENTS; i++) {
+		users[i] = NULL;
 	}
 
 }
-
 
 
 void ObjectEffect(int block, int player) {
@@ -464,27 +587,28 @@ void gerarNavesInimigas() {
 
 
 DWORD WINAPI listenClientSharedMemory(LPVOID params) {
+	data(*getData)();
 	data dataGame;
 	HANDLE canWrite, canRead;
 	eventReader = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventReader"));
 	eventWriter = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventWriter"));
+
 	canWrite = startSemaphore(L"writeSemaphore");
 	canRead = startSemaphore(L"readSemaphore");
 
+	getData = (data(*)()) GetProcAddress(DLL, "readBuffer");
+	if (getData == NULL) {
+		_tprintf(TEXT("[SHM ERROR] Loading getDataSHM function from DLL (%d)\n"), GetLastError());
+		return NULL;
+	}
 	do {
-		data(*getData)();
 
-		//Wait for any client trigger the event by typing any option
 		WaitForSingleObject(canRead, INFINITE);
 
+		//GETDATA IN CORRECT POSITION
 
-		//GETDATA IN CORRECT PULL POSITION
-		getData = (data(*)()) GetProcAddress(DLL, "readBuffer");
-		if (getData == NULL) {
-			_tprintf(TEXT("[SHM ERROR] Loading getDataSHM function from DLL (%d)\n"), GetLastError());
-			return NULL;
-		}
 		dataGame = getData();
+		manageCommands(dataGame);
 		_tprintf(TEXT("Lido: %d"), dataGame.op);
 		ReleaseSemaphore(canWrite, 1, NULL);
 	} while ((dataGame.op != -1));
@@ -530,8 +654,48 @@ void initializeSharedMemory() {
 }
 
 
-int _tmain()
+LRESULT CALLBACK DialogConfig(HWND hWndDlg, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
+	TCHAR aux[24];
+	switch (Msg)
+	{
+	case WM_INITDIALOG:
+		return TRUE;
+
+	case WM_COMMAND:
+		switch (wParam)
+		{
+		case IDOK:
+			GetDlgItemText(hWndDlg, IDC_linhas, aux, 20);
+			game.nRows = _wtoi(aux);
+			GetDlgItemText(hWndDlg, IDC_colunas, aux, 20);
+			game.nColumns = _wtoi(aux);
+			GetDlgItemText(hWndDlg, IDC_basicas, aux, 20);
+			game.nInvadesBasic = _wtoi(aux);
+			GetDlgItemText(hWndDlg, IDC_esquivas, aux, 20);
+			game.nInvadesDodge = _wtoi(aux);
+			GetDlgItemText(hWndDlg, IDC_dificuldade, aux, 20);
+			game.difficult = _wtoi(aux);
+			GetDlgItemText(hWndDlg, IDC_vidas, aux, 20);
+			game.lifes = _wtoi(aux);
+			GetDlgItemText(hWndDlg, IDC_poweruptempo, aux, 20);
+			game.powerUpTime = _wtoi(aux);
+			GetDlgItemText(hWndDlg, IDC_velDisparo, aux, 20);
+			game.fireTime = _wtoi(aux);
+
+
+
+			EndDialog(hWndDlg, 0);
+			return TRUE;
+		}
+		break;
+	}
+
+	return FALSE;
+}
+
+int _tmain() {
+
 
 	DLL = LoadLibrary(_T("DLL"));
 	if (DLL == NULL) {
@@ -547,15 +711,15 @@ int _tmain()
 	startMutex = (HANDLE(*)())GetProcAddress(DLL, "startSyncMutex");
 	setGameInfo = (void(*)(GameInfo gi))GetProcAddress(DLL, "setInfoSHM");
 	startSemaphore = (HANDLE(*)(LPCWSTR semaphoreName))GetProcAddress(DLL, "startSyncSemaphore");
+
 	if (writeB == NULL || readB == NULL || startgame == NULL || setGameInfo == NULL || startSemaphore == NULL) {
 		_tprintf(TEXT("[SHM ERROR] Loading functions from DLL (%d)\n"), GetLastError());
 		return 0;
 	}
 
 	startgame();
-
 	initializeSharedMemory();
-	WaitForSingleObject(hThreadSharedMemory, INFINITE);
+	//WaitForSingleObject(hThreadSharedMemory, INFINITE);
 
 
 	auxGameForNow();
@@ -563,31 +727,20 @@ int _tmain()
 	gerarNavesInimigas();
 	Sleep(3000);
 	TrincoOfThreads = CreateMutex(NULL, FALSE, NULL);
-	do {
 
-		Sleep(1000);
-		WaitForSingleObject(TrincoOfThreads, INFINITE);
+	HANDLE hGameThread = CreateThread(
+		NULL,
+		0,
+		gameThread,
+		NULL,
+		0,
+		0);
 
-			system("cls");
-			for (int j = 0; j < game.nRows; j++) {
-				for (int i = 0; i < game.nColumns; i++) {
-					_tprintf(_T("%d"), game.boardGame[i][j]);
-				}
-				_tprintf(_T("\n"));
-			}
-	/*	for (int i = 0; i < game.nRows; i++) {
-			for (int j = 0; j < game.nColumns; j++) {
-				gameInfo.boardGame[i][j] = game.boardGame[i][j];
-			}
-		} */
-		gameInfo.Id = 1;
-		gameInfo.nColumns = 30;
-		gameInfo.nRows = 30;
-		sendGameInfo(gameInfo);
-		SetEvent(eventWriter);
-		ReleaseMutex(TrincoOfThreads);
+	if (hGameThread == NULL) {
+		_tprintf(TEXT("[ERROR] Creating Shared Memory Thread... (%d)"), GetLastError());
+	}
+	WaitForSingleObject(hGameThread, INFINITE);
 
-	} while (1);
 	return 0;
 }
 
