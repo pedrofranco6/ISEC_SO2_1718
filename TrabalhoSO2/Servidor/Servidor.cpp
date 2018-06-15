@@ -42,8 +42,8 @@ HANDLE canWrite, canRead;
 // FUNCTIONS
 void GameInfoSend() {
 	WaitForSingleObject(TrincoOfThreads, INFINITE);
-	gameInfo.commandId = REFRESH_BOARD;
-	gameInfo.Id = ALL_PLAYERS;	// For all players see
+	gameInfo.commandId = 1;
+	gameInfo.Id = 1;	// For all players see
 	gameInfo.nRows = game.nRows;
 	gameInfo.nColumns = game.nColumns;
 
@@ -73,7 +73,7 @@ DWORD WINAPI gameThread(LPVOID params) {
 
 		//	verifyEndGame();
 
-		Sleep(450);
+	//	Sleep(450);
 
 	}
 	return 0;

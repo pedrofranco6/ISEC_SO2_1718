@@ -231,7 +231,8 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 			220, 50, 80, 25,
 			hWnd, (HMENU)3, NULL, NULL);
 		listBox = CreateWindow(L"LISTBOX", L"",
-			WS_CHILD | WS_VISIBLE | LBS_STANDARD,
+			WS_CHILD | WS_VISIBLE  | LBS_NOSEL |
+			WS_SIZEBOX  | LBS_HASSTRINGS | LBS_STANDARD,
 			500, 50, 500, 300,
 			hWnd, (HMENU)IDC_LIST, NULL, NULL);
 		break;
@@ -247,12 +248,17 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 			TCHAR buffer[1024] = TEXT("");
 			int i = 0;
 			Beep(40, 50);
-			_stprintf_s(buffer,1024, _T("%d %d"), i, i);
+			_stprintf_s(buffer,1024, _T("Jogo Criado com sucesso."), i, i);
 			sendMsg(buffer);
 		}
 
 		if (LOWORD(wParam) == 2) {
 			DialogBox(hThisInst, (LPCWSTR)IDD_CONFIG, hWnd, (DLGPROC)DialogConfig);
+			TCHAR buffer[1024] = TEXT("");
+			int i = 0;
+			Beep(40, 50);
+			_stprintf_s(buffer, 1024, _T("Configuração efectuada com sucesso!"), i, i);
+			sendMsg(buffer);
 		}
 		if (LOWORD(wParam) == 3) {
 			PostQuitMessage(0);
