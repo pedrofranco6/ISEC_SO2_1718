@@ -1,5 +1,8 @@
 {
     "files.associations": {
-        "system_error": "c"
+        "system_error": "c",
+        "xstring": "c",
+        "xutility": "c",
+        "*.rh": "c"
     }
 }

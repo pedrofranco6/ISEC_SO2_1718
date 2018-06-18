@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -92,7 +92,7 @@
       <PrecompiledHeaderFile />
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EntryPointSymbol>
       </EntryPointSymbol>
@@ -147,6 +147,26 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Cliente.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Cliente.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="bitmaps\alcool.bmp" />
+    <Image Include="bitmaps\battery.bmp" />
+    <Image Include="bitmaps\empty.bmp" />
+    <Image Include="bitmaps\enemyship.bmp" />
+    <Image Include="bitmaps\enemyshot.bmp" />
+    <Image Include="bitmaps\friendlyship.bmp" />
+    <Image Include="bitmaps\friendlyshot.bmp" />
+    <Image Include="bitmaps\ice.bmp" />
+    <Image Include="bitmaps\life.bmp" />
+    <Image Include="bitmaps\more.bmp" />
+    <Image Include="bitmaps\shield.bmp" />
+    <Image Include="bitmaps\wall.bmp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

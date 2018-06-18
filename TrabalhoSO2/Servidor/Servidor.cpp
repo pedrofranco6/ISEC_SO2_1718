@@ -149,7 +149,7 @@ void manageCommands(data dataGame) {
 		break;
 	case SCORES:
 		break;
-	case MOVE_SPACE:
+	case MOVE:
 		moveShip(dataGame.playerId, dataGame.direction);
 		break;
 	default:
@@ -224,13 +224,13 @@ DWORD WINAPI threadPowerUp(LPVOID data) {
 DWORD WINAPI EnemyFire(LPVOID data) {
 	InvadeShip *enemyShip = (InvadeShip *)data;
 	int x = enemyShip->x + 2, y = enemyShip->y + +3;
-	game.boardGame[x][y] = BLOCK_BATTERY;
+	game.boardGame[x][y] = BLOCK_ENEMYSHOT;
 	do {
 		Sleep(SHIP_SPEED * 10);
 		WaitForSingleObject(TrincoOfThreads, INFINITE);
 		game.boardGame[x][y] = BLOCK_EMPTY;
 		y++;
-		game.boardGame[x][y] = BLOCK_BATTERY;
+		game.boardGame[x][y] = BLOCK_ENEMYSHOT;
 		ReleaseMutex(TrincoOfThreads);
 	} while (y != game.nRows - 2);
 	Sleep(SHIP_SPEED * 10);
@@ -238,27 +238,36 @@ DWORD WINAPI EnemyFire(LPVOID data) {
 	return 0;
 
 }
+DWORD WINAPI PowerUpTimeWait(LPVOID data) {
+	Object obj;
+	do {
+		
+		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)PowerUp, NULL, 0, NULL);
+		Sleep(game.powerUpTime * 1000);
+	} while (game.running);
 
-
-
-
+	return 0;
+}
 
 DWORD WINAPI PowerUp(LPVOID data) {
-	Object *object = (Object *)data;
+	Object object;
+	object.block = initRandomObject();
 	int x, y = 1;
+
 	do {
 		srand((unsigned int)time(NULL));
-		x = rand() % ((game.nColumns) - 1) + 1;
-	} while (hasColision(0, 0, 2) != 0);
-	drawBlock(x, y, 2, object->block);
+		x = rand() % ((game.nRows) - 1) + 1;
+	} while (hasColision(x, y, 2) == true);
+	drawBlock(x, y, 2, object.block);
 	do {
+
 		Sleep(SHIP_SPEED * 10);
 		WaitForSingleObject(TrincoOfThreads, INFINITE);
 		drawBlock(x, y, 2, BLOCK_EMPTY);
 		y++;
-		drawBlock(x, y, 2, object->block);
+		drawBlock(x, y, 2, object.block);
 		ReleaseMutex(TrincoOfThreads);
-	} while (y != game.nRows - 2);
+	} while (y != game.nRows - 1);
 	Sleep(SHIP_SPEED * 10);
 	drawBlock(x, y, 2, BLOCK_EMPTY);
 	return 0;
@@ -429,53 +438,38 @@ void auxGameForNow() {
 	dataGame.gameObjects = 4;
 	dataGame.lifes = 3;
 	dataGame.objectsDuration = 5;
-	dataGame.powerUpTime = 5;
+	dataGame.powerUpTime = 10;
 	dataGame.fireTime = 5;
 	initGame(dataGame);
 }
 
 
-Objects initRandomObject() {
-
-	Object aux;
-	unsigned int x;
+int initRandomObject() {
 	srand((unsigned int)time(NULL));
-	do {
-		x = rand() % game.nColumns;
-	} while (game.boardGame[x][1] != 0);
-
-	aux.x = x;
-	aux.y = 1;
-	aux.duration = game.objectsDuration;
 	int nGenerated = rand() % 100 + 1;
 
 	if (nGenerated < 25) {
-
+		return BLOCK_MORE;
 	}
 	else if (nGenerated < 50 && nGenerated > 25) {
-		game.boardGame[x][1] = BLOCK_SHIELD;
-		aux.block = BLOCK_SHIELD;
+		return BLOCK_SHIELD;
 	}
 	else if (nGenerated < 65 && nGenerated > 50) {
-		game.boardGame[x][1] = BLOCK_MORE;
-		aux.block = BLOCK_MORE;
+		return BLOCK_ALCOOL;
 	}
 	else if (nGenerated < 80 && nGenerated > 65) {
-		game.boardGame[x][1] = BLOCK_ICE;
-		aux.block = BLOCK_ICE;
+		return BLOCK_ICE;
 	}
 	else if (nGenerated < 95 && nGenerated > 80) {
-		game.boardGame[x][1] = BLOCK_BATTERY;
-		aux.block = BLOCK_BATTERY;
+		return BLOCK_BATTERY;
 	}
-	else if (nGenerated < 95 && nGenerated > 80) {
-		game.boardGame[x][1] = BLOCK_ALCOOL;
-		aux.block = BLOCK_ALCOOL;
+	else if (nGenerated > 95) {
+		return BLOCK_LIFE;
 	}
 	else {
 		_tprintf(_T("Error creating object"));
 	}
-	return aux;
+	return -1; //ERROR
 }
 
 
@@ -582,6 +576,7 @@ void gerarNavesInimigas() {
 		handleThreadsNavesInimigas[i + navesInimigasBasicas] = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadesquivas, (LPVOID)i, 0, &threadIds);
 	}
 	_tprintf(_T("Naves inimigas criadas com sucesso\n"));
+	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)PowerUpTimeWait, NULL, 0, NULL);
 
 }
 

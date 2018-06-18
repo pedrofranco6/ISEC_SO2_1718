@@ -19,4 +19,52 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Cliente.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="bitmaps\enemyship.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmaps\friendlyship.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmaps\ice.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmaps\battery.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmaps\shield.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmaps\life.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmaps\more.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmaps\alcool.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmaps\wall.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmaps\empty.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmaps\friendlyshot.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="bitmaps\enemyshot.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
 </Project>
