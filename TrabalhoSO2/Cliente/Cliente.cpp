@@ -276,6 +276,7 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 
 	case WM_KEYDOWN:
 	{
+		
 		data.op = MOVE;
 		switch (wParam) {
 
@@ -294,6 +295,9 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		case VK_DOWN:
 			data.direction = DOWN;
 			break;
+		default:
+			if(wParam == TEXT('C'))
+			data.op = JOIN_GAME;
 		}
 		sendCommand(data);
 		break;
@@ -335,7 +339,6 @@ void sendCommand(data data) {
 		return;
 	}
 
-	_tprintf(TEXT("[INFO] Mensagem enviada com sucesso\n"));
 }
 
 DWORD WINAPI ThreadReadGateway(void* data) {
@@ -539,11 +542,12 @@ void RefreshMap(GameInfo gameInfo) {
 						break;
 					case BLOCK_ENEMYSHIP:
 						bitmap(x, x + 20, y, y + 20, hbitEnemyShip);
+
 						break;
 					case BLOCK_ENEMYSHOT:
 						bitmap(x, x + 20, y, y + 20, hbitEnemyShot);
 						break;
-					case IDB_FRIENDLYSHIP:
+					case BLOCK_DEFENCESHIP:
 						bitmap(x, x + 20, y, y + 20, hbitDefenceShip);
 						break;
 					case BLOCK_FRIENDLYSHOT:

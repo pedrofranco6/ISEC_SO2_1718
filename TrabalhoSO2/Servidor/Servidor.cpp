@@ -54,6 +54,7 @@ void GameInfoSend() {
 	}
 	sendGameInfo(gameInfo);
 	SetEvent(eventReader);
+
 	ReleaseMutex(TrincoOfThreads);
 }
 
@@ -126,8 +127,25 @@ void moveShip(int id, int dir) {
 		default:
 			break;
 		}
-		//FALTA MOVER
 	}
+		drawBlock(game.playerShips[i].x, game.playerShips[i].y, 1, BLOCK_EMPTY);
+		switch (dir) {
+
+		case RIGHT:
+			game.playerShips[i].x++;
+			break;
+		case LEFT:
+			game.playerShips[i].x--;
+			break;
+		case UP:
+			game.playerShips[i].y--;
+			break;
+		case DOWN:
+			game.playerShips[i].y++;
+			break;
+		}
+		drawBlock(game.playerShips[i].x, game.playerShips[i].y, 1, BLOCK_DEFENCESHIP);
+	
 }
 
 void manageCommands(data dataGame) {
@@ -138,14 +156,14 @@ void manageCommands(data dataGame) {
 
 		break;
 	case JOIN_GAME:
-		if (game.Created && !game.running) {
+	//	if (game.Created && !game.running) {
 			joinGame(dataGame);
-		}
-		else {
-			gameInfo.commandId = ERROR_CANNOT_JOIN_GAME;
-			gameInfo.Id = dataGame.playerId;
-			setGameInfo(gameInfo);
-		}
+	//	}
+	//	else {
+	//		gameInfo.commandId = ERROR_CANNOT_JOIN_GAME;
+	//		gameInfo.Id = dataGame.playerId;
+	//		setGameInfo(gameInfo);
+	//	}
 		break;
 	case SCORES:
 		break;
@@ -170,6 +188,13 @@ BOOL hasColision(int x, int y, int type) {
 
 		for (int i = x; i < x + 2; i++)
 			for (int j = y; j < y + 2; j++)
+				if (game.boardGame[i][j] != BLOCK_EMPTY)
+					return true;
+	}
+	else if (type == 3) {
+
+		for (int i = x; i < x + 3; i++)
+			for (int j = y; j < y + 3; j++)
 				if (game.boardGame[i][j] != BLOCK_EMPTY)
 					return true;
 	}
@@ -367,7 +392,6 @@ DWORD WINAPI threadesquivas(LPVOID data) {
 			}
 
 		} while (hasColision(x + game.invadeShips[i].x, y + game.invadeShips[i].y, 1) == true);
-		_tprintf(TEXT("passou"));
 
 		game.invadeShips[i].x = x + game.invadeShips[i].x;
 		game.invadeShips[i].y = y + game.invadeShips[i].y;
@@ -517,19 +541,30 @@ void ObjectEffect(int block, int player) {
 	}
 }
 
+void joinGame(data dataGame) {
+
+	game.playerShips[game.nPlayers] = initShip(dataGame.playerId);
+	game.nPlayers++;
+	_tprintf(TEXT("Player : %d on %d/%d connected "), game.playerShips[game.nPlayers - 1].id,
+		game.playerShips[game.nPlayers - 1].x, game.playerShips[game.nPlayers - 1].y);
+	//	gameInfo.commandId = JOIN_GAME;
+	//	gameInfo.Id = dataGame.playerId;
+	//sendInfoToPlayers(gameInfo);
+
+
+}
 
 DefenceShip initShip(int id) {
 	DefenceShip defenceShip;
 	int x, y;
-
-
 	do {
 		srand((unsigned int)time(NULL));
-		x = rand() % ((game.nColumns - game.nColumns / 20) - 1) + 1;
+		x = rand() % ((game.nRows) - 1) + 1;
 		srand((unsigned int)time(NULL));
-		y = rand() % (game.nRows - 1) + 1;
-	} while (hasColision(x, y, 1));
-	game.boardGame[x][y] = BLOCK_DEFENCESHIP;
+		y = game.nRows - 4;
+
+	} while (hasColision(x, y, 1) == true);
+	drawBlock(x, y, 1, BLOCK_DEFENCESHIP);
 	defenceShip.id = id;
 	defenceShip.alive = TRUE;
 	defenceShip.x = x;
@@ -543,19 +578,7 @@ DefenceShip initShip(int id) {
 
 
 
-void joinGame(data dataGame) {
 
-	wcscpy_s(game.playerShips[game.nPlayers].user, dataGame.playerName);
-	game.playerShips[game.nPlayers] = initShip(game.nPlayers);
-	game.nPlayers++;
-
-
-	gameInfo.commandId = JOIN_GAME;
-	gameInfo.Id = dataGame.playerId;
-	//sendInfoToPlayers(gameInfo);
-
-
-}
 
 
 void gerarNavesInimigas() {

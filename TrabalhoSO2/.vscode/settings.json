@@ -3,6 +3,9 @@
         "system_error": "c",
         "xstring": "c",
         "xutility": "c",
-        "*.rh": "c"
+        "*.rh": "c",
+        "ios": "c",
+        "iosfwd": "c",
+        "type_traits": "c"
     }
 }
