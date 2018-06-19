@@ -73,7 +73,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	wcApp.hInstance = hInst; // Instância da janela actualmente exibida
 	wcApp.lpszClassName = szProgName;
 	wcApp.lpfnWndProc = TrataEventos;
-
+	BOOL fSuccess = false;
 	wcApp.style = CS_HREDRAW | CS_VREDRAW;
 
 	wcApp.hIcon = LoadIcon(NULL, IDI_APPLICATION);

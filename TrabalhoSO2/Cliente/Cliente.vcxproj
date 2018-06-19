@@ -149,6 +149,7 @@
     <ClCompile Include="Cliente.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Cliente.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
