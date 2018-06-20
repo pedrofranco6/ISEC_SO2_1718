@@ -34,12 +34,17 @@ typedef struct {
 	int x, y, vida, tipo;
 	LPDWORD* threadId;
 }NaveInvasora;
-
+typedef struct messageData {
+	int type;
+	int id;
+	int command;
+}MSGdata, *pMSGdata;
 
 typedef struct {
-	int pull;	//indice de escrita
-	int push; //indice de leitura
-	data data[20];
+	MSGdata buffer[20];
+	int pull;
+	int push;
+	int messagelengh;
 
 }buffer, *pBuffer;
 
@@ -53,8 +58,8 @@ extern "C"
 	DLL_IMP_API HANDLE startSyncMutex();
 	DLL_IMP_API HANDLE startSyncSemaphore(LPCWSTR semaphoreName);
 	DLL_IMP_API void newBuffer();
-	DLL_IMP_API BOOL writeBuffer(data data);
-	DLL_IMP_API data readBuffer();
+	DLL_IMP_API BOOL writeBuffer(MSGdata data);
+	DLL_IMP_API MSGdata readBuffer();
 	DLL_IMP_API void releaseSyncHandles(HANDLE mutex, HANDLE semaphore);
 	DLL_IMP_API void setInfoSHM(GameInfo gi);
 	DLL_IMP_API GameInfo getInfoSHM();

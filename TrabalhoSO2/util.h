@@ -23,16 +23,17 @@
 #define SCORES			103
 #define START_GAME		104
 #define MOVE			105
-
+#define WAIT_GAME		106
 #define GAME_OVER		107
-#define REFRESH_BOARD	108
+#define REFRESH_GAME	108
+#define GAME_STARTED	109
 
 //errors
 #define ERROR_CANNOT_CREATE_GAME	99
 #define ERROR_CANNOT_JOIN_GAME		98
 
 //messages
-#define SHM_ALL 600
+#define SHM_ALL 1
 
 
 #define LEFT  1

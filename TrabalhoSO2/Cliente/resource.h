@@ -14,14 +14,19 @@
 #define IDB_EMPTY                       121
 #define IDB_FRIENDLYSHOT                122
 #define IDB_ENEMYSHOT                   123
+#define IDD_STARTDIALOG                 124
+#define IDC_BUTTON2                     1002
+#define IDC_QUIT                        1002
+#define IDC_text                        1003
+#define IDC_JOINGAME                    1004
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        124
+#define _APS_NEXT_RESOURCE_VALUE        126
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1001
+#define _APS_NEXT_CONTROL_VALUE         1005
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

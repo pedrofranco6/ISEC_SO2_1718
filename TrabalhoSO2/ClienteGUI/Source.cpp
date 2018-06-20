@@ -146,6 +146,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 			// ============================================================================
 			// 4. Mostrar a janela
 			// ============================================================================
+	
 	ShowWindow(hWnd, nCmdShow); // "hWnd"= handler da janela, devolvido por
 								// "CreateWindow"; "nCmdShow"= modo de exibição (p.e.
 								// normal/modal); é passado como parâmetro de WinMain()

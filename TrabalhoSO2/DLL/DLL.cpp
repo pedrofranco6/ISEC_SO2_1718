@@ -159,39 +159,44 @@ HANDLE startSyncSemaphore(LPCWSTR semaphoreName) {
 }
 void newBuffer() {
 
-	int i = 0;
-	data auxData;
+	MSGdata aux;
+	aux.command = 0;
+	aux.id = 100;
+	aux.type = 0;
 
-
-	auxData.op = 0;
-	auxData.command[objSize] = (TCHAR) _TEXT("Empty");
-
-	for (i; i < 20; i++) {
-		bufferView->data[i] = auxData;
+	for (int i = 0; i < 20; i++) {
+		bufferView->buffer[i] = aux;
 	}
 
 	bufferView->pull = 0;
 	bufferView->push = 0;
+	bufferView->messagelengh = 0;
 }
 
 
-BOOL writeBuffer(data data)
+BOOL writeBuffer(MSGdata msg)
 {
 
-	bufferView->data[bufferView->push] = data;
-	bufferView->push = (bufferView->push + 1) % 20;
+	memcpy(&bufferView->buffer[bufferView->push], &msg, sizeof(MSGdata));
+	bufferView->messagelengh++;
+	bufferView->pull = (bufferView->pull + 1) % 20;
 
 	return TRUE;
 }
-data readBuffer()
+MSGdata readBuffer()
 {
 
-	data auxData;
+	MSGdata auxMSG;
+	auxMSG.id = bufferView->buffer[bufferView->push].id;
+	auxMSG.type = bufferView->buffer[bufferView->push].type;
+	auxMSG.command = bufferView->buffer[bufferView->push].command;
 
-	auxData = bufferView->data[bufferView->pull];
-	bufferView->pull = (bufferView->pull + 1) % 20;
+	// CLEAN
+	bufferView->buffer[bufferView->push].id = 0;
+	bufferView->messagelengh--;
+	bufferView->push = (bufferView->push + 1) & 20;
 
-	return auxData;
+	return auxMSG;
 }
 
 

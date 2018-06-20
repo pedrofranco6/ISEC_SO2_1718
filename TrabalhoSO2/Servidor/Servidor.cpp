@@ -8,7 +8,7 @@
 #include "resource.h"
 
 // CONFIG 
-HANDLE users[MAXCLIENTS];
+int users[MAXCLIENTS];
 HINSTANCE hThisInst;
 int windowMode = 0;
 HWND hWnd;
@@ -21,8 +21,8 @@ GameInfo gameInfo;
 int invadeShipId;
 //DLL FUNCTIONS
 BOOL(*startgame) ();
-BOOL(*writeB)(data data);
-data(*readB) ();
+BOOL(*writeB)(MSGdata data);
+MSGdata(*readB) ();
 void(*setGameInfo) (GameInfo gi);
 HANDLE(*startMutex)();
 HANDLE(*startSemaphore)(LPCWSTR semaphoreName);
@@ -37,13 +37,14 @@ HANDLE hThreadSharedMemory;
 DWORD timerThread;
 HANDLE eventReader;
 HANDLE eventWriter;
+HANDLE eventReaderFromBuffer;
+HANDLE eventWriterFromBuffer;
 HANDLE canWrite, canRead;
-
+HANDLE PlayersJoin;
 // FUNCTIONS
 void GameInfoSend() {
 	WaitForSingleObject(TrincoOfThreads, INFINITE);
-	gameInfo.commandId = 1;
-	gameInfo.Id = 1;	// For all players see
+	gameInfo.Id = ALL_PLAYERS;	// For all players see
 	gameInfo.nRows = game.nRows;
 	gameInfo.nColumns = game.nColumns;
 
@@ -63,7 +64,7 @@ DWORD WINAPI gameThread(LPVOID params) {
 	_tprintf(TEXT("\n-----GAMETHREAD----\n"));
 	game.running = 1;
 	//	gameCount = 0;
-
+	gameInfo.commandId = REFRESH_GAME;
 	while (game.running == 1) {
 		//	gameCount++;
 		//	moveShips();
@@ -148,8 +149,8 @@ void moveShip(int id, int dir) {
 	
 }
 
-void manageCommands(data dataGame) {
-	switch (dataGame.op) {
+void manageCommands(MSGdata data) {
+	switch (data.type) {
 	case EXIT:
 		_tprintf(TEXT("Goodbye.."));
 		break;
@@ -157,7 +158,8 @@ void manageCommands(data dataGame) {
 		break;
 	case JOIN_GAME:
 	//	if (game.Created && !game.running) {
-			joinGame(dataGame);
+			joinGame(data);
+
 	//	}
 	//	else {
 	//		gameInfo.commandId = ERROR_CANNOT_JOIN_GAME;
@@ -168,7 +170,7 @@ void manageCommands(data dataGame) {
 	case SCORES:
 		break;
 	case MOVE:
-		moveShip(dataGame.playerId, dataGame.direction);
+		moveShip(data.id, data.command);
 		break;
 	default:
 		break;
@@ -291,6 +293,7 @@ DWORD WINAPI PowerUp(LPVOID data) {
 		drawBlock(x, y, 2, BLOCK_EMPTY);
 		y++;
 		drawBlock(x, y, 2, object.block);
+
 		ReleaseMutex(TrincoOfThreads);
 	} while (y != game.nRows - 1);
 	Sleep(SHIP_SPEED * 10);
@@ -412,11 +415,11 @@ DWORD WINAPI threadesquivas(LPVOID data) {
 DWORD WINAPI awaitMessages(LPVOID dados) {
 
 	int optionAux = 0;
-	data option;
+	MSGdata option;
 	while (1) {
 
 		option = readB();
-		_tprintf(TEXT("\n chegou do gateway: %d\n"), option.op);
+		_tprintf(TEXT("\n chegou do gateway: %d\n"), option.type);
 	}
 }
 
@@ -498,11 +501,21 @@ int initRandomObject() {
 
 
 //START ALL CLIENTS WITH NULL
-void StartPlayerShips() {
+void joinDefendShip() {
 	for (int i = 0; i < MAXCLIENTS; i++) {
-		users[i] = NULL;
+		users[i] = -1;
 	}
 
+}
+
+void createDefends() {
+	for (int i = 0; i < MAXCLIENTS; i++) {
+		if (users[i] != -1) {
+			game.playerShips[game.nPlayers] = initShip(users[i]);
+			game.nPlayers++;
+		}
+	}
+	
 }
 
 
@@ -541,17 +554,14 @@ void ObjectEffect(int block, int player) {
 	}
 }
 
-void joinGame(data dataGame) {
-
-	game.playerShips[game.nPlayers] = initShip(dataGame.playerId);
-	game.nPlayers++;
-	_tprintf(TEXT("Player : %d on %d/%d connected "), game.playerShips[game.nPlayers - 1].id,
-		game.playerShips[game.nPlayers - 1].x, game.playerShips[game.nPlayers - 1].y);
-	//	gameInfo.commandId = JOIN_GAME;
-	//	gameInfo.Id = dataGame.playerId;
-	//sendInfoToPlayers(gameInfo);
-
-
+void joinGame(MSGdata data) {
+	for (int i = 0; i < MAXCLIENTS; i++) {
+		if (users[i] == -1) {
+			users[i] = data.id;
+			_tprintf(TEXT("Player : %d connected."), data.id);
+			break;
+		}
+	}
 }
 
 DefenceShip initShip(int id) {
@@ -605,16 +615,17 @@ void gerarNavesInimigas() {
 
 
 DWORD WINAPI listenClientSharedMemory(LPVOID params) {
-	data(*getData)();
-	data dataGame;
-	HANDLE canWrite, canRead;
+	MSGdata(*getData)();
+	MSGdata data;
 	eventReader = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventReader"));
 	eventWriter = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventWriter"));
 
 	canWrite = startSemaphore(L"writeSemaphore");
 	canRead = startSemaphore(L"readSemaphore");
-
-	getData = (data(*)()) GetProcAddress(DLL, "readBuffer");
+	eventReaderFromBuffer = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventReaderFromBuff"));
+	eventWriterFromBuffer = CreateEvent(NULL, TRUE, FALSE, TEXT("Global\eventWriterFromBuff"));;
+	//ReleaseSemaphore(canWrite, 1, NULL);
+	getData = (MSGdata(*)()) GetProcAddress(DLL, "readBuffer");
 	if (getData == NULL) {
 		_tprintf(TEXT("[SHM ERROR] Loading getDataSHM function from DLL (%d)\n"), GetLastError());
 		return NULL;
@@ -625,11 +636,11 @@ DWORD WINAPI listenClientSharedMemory(LPVOID params) {
 
 		//GETDATA IN CORRECT POSITION
 
-		dataGame = getData();
-		manageCommands(dataGame);
-		_tprintf(TEXT("Lido: %d"), dataGame.op);
+		data = getData();
+		manageCommands(data);
+		_tprintf(TEXT("Lido: %d"), data.type);
 		ReleaseSemaphore(canWrite, 1, NULL);
-	} while ((dataGame.op != -1));
+	} while ((data.type != -1));
 	return 0;
 }
 
@@ -639,10 +650,9 @@ void sendGameInfo(GameInfo gi) {
 void initializeSharedMemory() {
 
 	BOOL(*createFileMap)();
-
+	WaitForSingleObject(PlayersJoin, INFINITE);
 
 	_tprintf(TEXT("STARTING SHARED MEMORY....................\n"));
-
 	//CREATEFILEMAP
 	createFileMap = (BOOL(*)()) GetProcAddress(DLL, "createGame");
 	if (createFileMap == NULL) {
@@ -723,13 +733,14 @@ int _tmain() {
 	else
 		_tprintf(_T("DLL lida com sucesso!\n"));
 
-	writeB = (BOOL(*)(data data))GetProcAddress(DLL, "writeBuffer");
-	readB = (data(*)())GetProcAddress(DLL, "readBuffer");
+	writeB = (BOOL(*)(MSGdata data))GetProcAddress(DLL, "writeBuffer");
+	readB = (MSGdata(*)())GetProcAddress(DLL, "readBuffer");
 	startgame = (BOOL(*)())GetProcAddress(DLL, "createGame");
 	startMutex = (HANDLE(*)())GetProcAddress(DLL, "startSyncMutex");
 	setGameInfo = (void(*)(GameInfo gi))GetProcAddress(DLL, "setInfoSHM");
 	startSemaphore = (HANDLE(*)(LPCWSTR semaphoreName))GetProcAddress(DLL, "startSyncSemaphore");
-
+	PlayersJoin = startMutex();
+	
 	if (writeB == NULL || readB == NULL || startgame == NULL || setGameInfo == NULL || startSemaphore == NULL) {
 		_tprintf(TEXT("[SHM ERROR] Loading functions from DLL (%d)\n"), GetLastError());
 		return 0;
@@ -737,15 +748,24 @@ int _tmain() {
 
 	startgame();
 	initializeSharedMemory();
-	//WaitForSingleObject(hThreadSharedMemory, INFINITE);
-
-
+	joinDefendShip();
+	ReleaseSemaphore(canWrite, 1, NULL);
+	int opc;
+	
+	while (1) {
+		
+		_tprintf(TEXT("Insert a option: "));
+		_tscanf_s(TEXT("%d"), &opc);
+		if (opc == 1) {
+			break;
+		}
+	}
 	auxGameForNow();
-
 	gerarNavesInimigas();
-	Sleep(3000);
+	createDefends();
 	TrincoOfThreads = CreateMutex(NULL, FALSE, NULL);
 
+	Sleep(3000);
 	HANDLE hGameThread = CreateThread(
 		NULL,
 		0,
@@ -753,7 +773,6 @@ int _tmain() {
 		NULL,
 		0,
 		0);
-
 	if (hGameThread == NULL) {
 		_tprintf(TEXT("[ERROR] Creating Shared Memory Thread... (%d)"), GetLastError());
 	}
@@ -761,5 +780,81 @@ int _tmain() {
 
 	return 0;
 }
+
+//int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
+//
+//	MSG lpMsg; 
+//	WNDCLASSEX wcApp; 
+//	wcApp.cbSize = sizeof(WNDCLASSEX); 
+//	wcApp.hInstance = hInst;
+//						
+//					
+//	wcApp.lpszClassName = szProgName; 
+//	wcApp.lpfnWndProc = WndProc; 
+//							
+//									
+//	wcApp.style = CS_HREDRAW | CS_VREDRAW;
+//										
+//	wcApp.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+//	wcApp.hIconSm = LoadIcon(NULL, IDI_INFORMATION);// "hIconSm" = handler do ícon pequeno
+//	wcApp.hCursor = LoadCursor(NULL, IDC_ARROW); // "hCursor" = handler do cursor (rato)
+//	wcApp.lpszMenuName = (LPCTSTR)(IDD_MENU); // Classe do menu que a janela pode ter
+//	wcApp.cbClsExtra = 0; 
+//	wcApp.cbWndExtra = 0; 
+//	wcApp.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+//
+//	if (!RegisterClassEx(&wcApp))
+//		return(0);
+//
+//	hWnd = CreateWindow(
+//		szProgName, 
+//		TEXT("SpaceGame"),
+//		WS_OVERLAPPEDWINDOW, 
+//		CW_USEDEFAULT, 
+//		CW_USEDEFAULT, 
+//		CW_USEDEFAULT, 
+//		CW_USEDEFAULT,
+//		(HWND)HWND_DESKTOP,
+//		(HMENU)NULL, 
+//		(HINSTANCE)hInst, 		
+//		0); 
+//	ShowWindow(hWnd, nCmdShow); // "hWnd"= handler da janela, devolvido por
+//								// "CreateWindow"; "nCmdShow"= modo de exibição (p.e.
+//								// normal/modal); é passado como parâmetro de WinMain()
+//	UpdateWindow(hWnd); // Refrescar a janela (Windows envia à janela uma
+//						// mensagem para pintar, mostrar dados, (refrescar)…
+//						// ============================================================================
+//						// 5. Loop de Mensagens
+//						// ============================================================================
+//						// O Windows envia mensagens às janelas (programas). Estas mensagens ficam numa fila de
+//						// espera até que GetMessage(...) possa ler "a mensagem seguinte"
+//						// Parâmetros de "getMessage":
+//						// 1)"&lpMsg"=Endereço de uma estrutura do tipo MSG ("MSG lpMsg" ja foi declarada no
+//						// início de WinMain()):
+//						// HWND hwnd handler da janela a que se destina a mensagem
+//						// UINT message Identificador da mensagem
+//						// WPARAM wParam Parâmetro, p.e. código da tecla premida
+//						// LPARAM lParam Parâmetro, p.e. se ALT também estava premida
+//						// DWORD time Hora a que a mensagem foi enviada pelo Windows
+//						// POINT pt Localização do mouse (x, y)
+//						// 2)handle da window para a qual se pretendem receber mensagens (=NULL se se pretendem
+//						// receber as mensagens para todas as janelas pertencentes à thread actual)
+//						// 3)Código limite inferior das mensagens que se pretendem receber
+//						// 4)Código limite superior das mensagens que se pretendem receber
+//						// NOTA: GetMessage() devolve 0 quando for recebida a mensagem de fecho da janela,
+//						// terminando então o loop de recepção de mensagens, e o programa
+//	while (GetMessage(&lpMsg, NULL, 0, 0)) {
+//		TranslateMessage(&lpMsg); // Pré-processamento da mensagem (p.e. obter código
+//								  // ASCII da tecla premida)
+//		DispatchMessage(&lpMsg); // Enviar a mensagem traduzida de volta ao Windows, que
+//								 // aguarda até que a possa reenviar à função de
+//								 // tratamento da janela, CALLBACK TrataEventos (abaixo)
+//	}
+//	InvalidateRect(janelaglobal, NULL, 0);
+//	// ============================================================================
+//	// 6. Fim do programa
+//	// ============================================================================
+//	return((int)lpMsg.wParam); // Retorna sempre o parâmetro wParam da estrutura lpMsg
+//}
 
 

@@ -9,13 +9,16 @@
 #include "resource.h"
 #include "../util.h"
 #include "Cliente.h"
+#include "../DLL/DLL.h"
 #define GATEWAY_PIPE_NAME TEXT("\\\\.\\pipe\\gatewayPipe")
 #define BUFSIZE 512
 #define CONNECTING_STATE 0
 #define READING_STATE 1 
 #define WRITING_STATE 2
 
-
+void sendCommand(MSGdata msg);
+void startMainWindow();
+LRESULT CALLBACK StartWindow(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK MainWindow(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam);
 void RefreshMap(GameInfo gameInfo);
 //Game
@@ -23,7 +26,7 @@ HINSTANCE hThisInst;
 int windowMode = 0;
 HWND hWnd; // hWnd é o handler da janela, gerado mais abaixo por CreateWindow()
 HWND janelaglobal;
-TCHAR szProgName[] = TEXT("SPACE_PROG");
+TCHAR szProgName[] = TEXT("SPACE_CLIENT");
 DWORD  cbToWrite, cbWritten, dwMode, cbRet, dwThreadId = 0;
 
 HANDLE hEventWrite;
@@ -54,15 +57,6 @@ DWORD WINAPI ThreadReadGateway(void* data);
 
 LRESULT CALLBACK TrataEventos(HWND, UINT, WPARAM, LPARAM);
 
-
-
-TCHAR keyLeft = TEXT('A');
-TCHAR keyRight = TEXT('D');
-TCHAR keyUp = TEXT('W');
-TCHAR keyDown = TEXT('S');
-
-
-
 //https://msdn.microsoft.com/en-us/library/windows/desktop/aa365592(v=vs.85).aspx
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
@@ -91,7 +85,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	// ============================================================================
 	hWnd = CreateWindow(
 		szProgName, // Nome da janela (programa) definido acima
-		TEXT("SpaceGame"),// Texto que figura na barra do título
+		TEXT("Space Client"),// Texto que figura na barra do título
 		WS_OVERLAPPEDWINDOW, // Estilo da janela (WS_OVERLAPPED= normal)
 		CW_USEDEFAULT, // Posição x pixels (default=à direita da última)
 		CW_USEDEFAULT, // Posição y pixels (default=abaixo da última)
@@ -107,12 +101,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 			// ============================================================================
 			// 4. Mostrar a janela
 			// ============================================================================
+	windowMode = nCmdShow;
+
 	ShowWindow(hWnd, nCmdShow); // "hWnd"= handler da janela, devolvido por
-								// "CreateWindow"; "nCmdShow"= modo de exibição (p.e.
-								// normal/modal); é passado como parâmetro de WinMain()
+								  // "CreateWindow"; "nCmdShow"= modo de exibição (p.e.
+								  // normal/modal); é passado como parâmetro de WinMain()
 	UpdateWindow(hWnd); // Refrescar a janela (Windows envia à janela uma
 
 	InvalidateRect(janelaglobal, NULL, 0);
+
 	//============================================================================
 
 
@@ -153,7 +150,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		_tprintf(TEXT("[ERRO] Criar evento de leitura... (%d)\n"), GetLastError());
 		return -1;
 	}
-
+	DialogBox(hThisInst, (LPCWSTR)IDD_STARTDIALOG, hWnd, (DLGPROC)StartWindow);
 	while ((ret = GetMessage(&lpMsg, NULL, 0, 0)) != 0) {
 		if (ret != -1) {
 			TranslateMessage(&lpMsg);	// Pré-processamento da mensagem (p.e. obter código 
@@ -181,12 +178,39 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 
 	return((int)lpMsg.wParam);
 }
+LRESULT CALLBACK StartWindow(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam) {
+
+	switch (messg) {
+
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDC_JOINGAME:
+			MSGdata msgToBuffer;
+			msgToBuffer.type = JOIN_GAME;
+			sendCommand(msgToBuffer);
+			return 1;
+			break;
+
+		case IDC_QUIT:
+			EndDialog(hWnd, 0);
+			break;
+
+		}
+	case WM_DESTROY:
+		EndDialog(hWnd, 0);
+		return 0;
+	
+	}
+	return (0);
+}
+
 
 LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam) {
 
 //	HDC device, auxDC;
 	PAINTSTRUCT pt;
-	data data;
+	MSGdata data;
 	switch (messg) {
 	case WM_CREATE:
 
@@ -277,27 +301,27 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 	case WM_KEYDOWN:
 	{
 		
-		data.op = MOVE;
+		data.type = MOVE;
 		switch (wParam) {
 
 		case VK_LEFT:
-			data.direction = LEFT;
+			data.command = LEFT;
 			break;
 
 		case VK_RIGHT:
-			data.direction = RIGHT;
+			data.command = RIGHT;
 			break;
 
 		case VK_UP:
-			data.direction = UP;
+			data.command = UP;
 			break;
 
 		case VK_DOWN:
-			data.direction = DOWN;
+			data.command = DOWN;
 			break;
 		default:
 			if(wParam == TEXT('C'))
-			data.op = JOIN_GAME;
+			data.type = JOIN_GAME;
 		}
 		sendCommand(data);
 		break;
@@ -316,15 +340,15 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 }
 
 
-void sendCommand(data data) {
+void sendCommand(MSGdata msg) {
 	BOOL   fSuccess = FALSE;
-	cbToWrite = sizeof(data);
+	cbToWrite = sizeof(MSGdata);
 
 	ZeroMemory(&oOverlap, sizeof(oOverlap));
 	ResetEvent(hEventWrite);
 	oOverlap.hEvent = hEventWrite;
 
-	fSuccess = WriteFile(hPipe, &data, sizeof(data), &cbWritten, &oOverlap);
+	fSuccess = WriteFile(hPipe, &msg, sizeof(MSGdata), &cbWritten, &oOverlap);
 
 	WaitForSingleObject(hEventWrite, INFINITE);
 
@@ -375,12 +399,25 @@ DWORD WINAPI ThreadReadGateway(void* data) {
 				_tprintf(TEXT("[ERRO] Ler do ficheiro do servidor... => %d\n"), GetLastError());
 			}
 		}
-		if (message.Id == 1) {
-
+		if (message.commandId == REFRESH_GAME) {
 			RefreshMap(message);
 
-
-
+		}
+		if (message.commandId == GAME_STARTED) {
+			EndDialog(hWnd, 0);
+			startMainWindow();
+			RefreshMap(message);
+		}
+		if(message.commandId == ERROR_CANNOT_JOIN_GAME) {
+			SendDlgItemMessage(
+				hWnd, IDC_text, LB_ADDSTRING,
+				(WPARAM)0, (LPARAM)(TEXT("Game Already Started.")));
+		}
+		else if(message.commandId == WAIT_GAME) {
+			startMainWindow();
+			SendDlgItemMessage(
+				hWnd, IDC_text, LB_ADDSTRING,
+				(WPARAM)0, (LPARAM)(TEXT("Waiting for server to start game.")));
 		}
 	}
 
@@ -393,7 +430,7 @@ DWORD WINAPI ThreadReadGateway(void* data) {
 
 
 LRESULT CALLBACK MainWindow(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam) {
-	data data;
+	MSGdata data;
 	HDC auxmemdc;					// handler para Device Context auxiliar em mem�ria
 									// que vai conter o bitmap 
 	PAINTSTRUCT ps;				// Ponteiro para estrutura de WM_PAINT
@@ -586,15 +623,12 @@ void RefreshMap(GameInfo gameInfo) {
 }
 
 void startMainWindow() {
-	EndDialog(hWnd, 0);
+	ShowWindow(hWnd, windowMode); // "hWnd"= handler da janela, devolvido por
+								// "CreateWindow"; "nCmdShow"= modo de exibição (p.e.
+								// normal/modal); é passado como parâmetro de WinMain()
+	UpdateWindow(hWnd); // Refrescar a janela (Windows envia à janela uma
 
-
-	ShowWindow(hWnd, windowMode);	// "hWnd"= handler da janela, devolvido por 
-									// "CreateWindow"; "nCmdShow"= modo de exibição (p.e. 
-									// normal/modal); é passado como parâmetro de WinMain()
-
-	UpdateWindow(hWnd);				// Refrescar a janela (Windows envia à janela uma 
-									// mensagem para pintar, mostrar dados, (refrescar)… 
+	InvalidateRect(janelaglobal, NULL, 0);
 
 	return;
 }

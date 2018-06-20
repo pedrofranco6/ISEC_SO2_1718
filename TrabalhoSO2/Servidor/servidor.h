@@ -2,7 +2,7 @@
 
 #include <windows.h>
 #include "../util.h"
-
+#include "../DLL/DLL.h"
 typedef struct {
 	int id;
 	TCHAR user[24];
@@ -71,9 +71,9 @@ void ObjectEffect(int block, int player);
 
 //Interactions
 void GameInfoSend();
-void manageCommands(data dataGame);
+void manageCommands(MSGdata data);
 void auxGameForNow();
-void joinGame(data dataGame);
+void joinGame(MSGdata data);
 void sendGameInfo(GameInfo gi);
 
 //THREADS
