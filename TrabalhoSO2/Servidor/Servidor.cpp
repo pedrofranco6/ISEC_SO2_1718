@@ -757,6 +757,9 @@ int _tmain() {
 		_tprintf(TEXT("Insert a option: "));
 		_tscanf_s(TEXT("%d"), &opc);
 		if (opc == 1) {
+			gameInfo.commandId = GAME_STARTED;
+			sendGameInfo(gameInfo);
+			SetEvent(eventReader);
 			break;
 		}
 	}

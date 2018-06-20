@@ -49,7 +49,7 @@ HBITMAP hbitAlcool;
 HBITMAP hbitShield;
 
 HBRUSH hbrush;
-
+INT_PTR InitialDialog;
 HANDLE hPipe;
 OVERLAPPED oOverlap;
 GameInfo gi;
@@ -150,7 +150,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 		_tprintf(TEXT("[ERRO] Criar evento de leitura... (%d)\n"), GetLastError());
 		return -1;
 	}
-	DialogBox(hThisInst, (LPCWSTR)IDD_STARTDIALOG, hWnd, (DLGPROC)StartWindow);
+	InitialDialog = DialogBox(hThisInst, (LPCWSTR)IDD_STARTDIALOG, hWnd, (DLGPROC)StartWindow);
 	while ((ret = GetMessage(&lpMsg, NULL, 0, 0)) != 0) {
 		if (ret != -1) {
 			TranslateMessage(&lpMsg);	// Pré-processamento da mensagem (p.e. obter código 
@@ -189,14 +189,15 @@ LRESULT CALLBACK StartWindow(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam
 			MSGdata msgToBuffer;
 			msgToBuffer.type = JOIN_GAME;
 			sendCommand(msgToBuffer);
-			return 1;
-			break;
-
-		case IDC_QUIT:
 			EndDialog(hWnd, 0);
 			break;
 
+		case IDC_QUIT:
+			PostQuitMessage(0);
+			break;
 		}
+
+
 	case WM_DESTROY:
 		EndDialog(hWnd, 0);
 		return 0;
@@ -404,7 +405,7 @@ DWORD WINAPI ThreadReadGateway(void* data) {
 
 		}
 		if (message.commandId == GAME_STARTED) {
-			EndDialog(hWnd, 0);
+			SendMessage(hWnd, WM_COMMAND, IDC_QUIT, NULL);
 			startMainWindow();
 			RefreshMap(message);
 		}
