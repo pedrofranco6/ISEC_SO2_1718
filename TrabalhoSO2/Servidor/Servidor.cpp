@@ -61,6 +61,24 @@ void GameInfoSend() {
 }
 
 
+void seeIfColisionsHappen() {
+	for (int i = 0; i < game.nRows; i++) {
+		for (int j = 0; j < game.nColumns; j++) {
+			if (game.boardGame[i][j] != BLOCK_EMPTY){
+				switch (game.boardGame[i][j]) {
+				case BLOCK_ENEMYSHIP:
+					break;
+				}
+}
+		}
+	}
+}
+void sendMsg(TCHAR  *t) {
+	SendDlgItemMessage(
+		hWnd, IDC_LIST, LB_ADDSTRING,
+		(WPARAM)0, (LPARAM)(t));
+}
+
 DWORD WINAPI gameThread(LPVOID params) {
 	_tprintf(TEXT("\n-----GAMETHREAD----\n"));
 	game.running = 1;
@@ -82,6 +100,23 @@ DWORD WINAPI gameThread(LPVOID params) {
 	return 0;
 }
 
+
+int * colosionDefenceShips(int x, int y, int id) {
+	for (int i = x; i < x + 3; i++)
+		for (int j = y; j < y + 3; j++) {
+			if (game.boardGame[i][j] != BLOCK_EMPTY) {
+				switch (game.boardGame[i][j]) {
+				case BLOCK_ENEMYSHIP:
+					game.playerShips[id].vidas--;
+					break;
+				default:
+
+					break;
+				}
+			}
+		}
+	return 0;
+}
 BOOL endGame() {
 
 	for (int i = 0; i < MAXCLIENTS; i++)
@@ -146,6 +181,7 @@ void moveShip(int id, int dir) {
 			game.playerShips[i].y++;
 			break;
 		}
+
 		drawBlock(game.playerShips[i].x, game.playerShips[i].y, 1, BLOCK_DEFENCESHIP);
 	
 }
@@ -269,8 +305,11 @@ DWORD WINAPI EnemyFire(LPVOID data) {
 DWORD WINAPI PowerUpTimeWait(LPVOID data) {
 	Object obj;
 	do {
-		
-		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)PowerUp, NULL, 0, NULL);
+		for (int i = 0; i < (sizeof(game.object) / sizeof(game.object[0])); i++) {
+			if (game.object[i].block == -1) {
+				game.object[i].threadId = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)PowerUp, &i, 0, NULL);
+			}
+		}
 		Sleep(game.powerUpTime * 1000);
 	} while (game.running);
 
@@ -278,25 +317,32 @@ DWORD WINAPI PowerUpTimeWait(LPVOID data) {
 }
 
 DWORD WINAPI PowerUp(LPVOID data) {
-	Object object;
-	object.block = initRandomObject();
+	int i = (int)data;
+	game.object[i].block = initRandomObject();
 	int x, y = 1;
 
 	do {
 		srand((unsigned int)time(NULL));
 		x = rand() % ((game.nRows) - 1) + 1;
 	} while (hasColision(x, y, 2) == true);
-	drawBlock(x, y, 2, object.block);
+
+	game.object[i].x = x;
+	game.object[i].y = y;
+	game.object[i].terminate = false;
+	WaitForSingleObject(TrincoOfThreads, INFINITE);
+	drawBlock(x, y, 2, game.object[i].block);
+	ReleaseMutex(TrincoOfThreads);
 	do {
 
 		Sleep(SHIP_SPEED * 10);
 		WaitForSingleObject(TrincoOfThreads, INFINITE);
 		drawBlock(x, y, 2, BLOCK_EMPTY);
 		y++;
-		drawBlock(x, y, 2, object.block);
-
+		drawBlock(x, y, 2, game.object[i].block);
+		game.object[i].x = x;
+		game.object[i].y = y;
 		ReleaseMutex(TrincoOfThreads);
-	} while (y != game.nRows - 1);
+	} while (y != game.nRows - 1 || game.object[i].terminate == false);
 	Sleep(SHIP_SPEED * 10);
 	drawBlock(x, y, 2, BLOCK_EMPTY);
 	return 0;
@@ -503,6 +549,10 @@ void joinDefendShip() {
 		users[i] = -1;
 	}
 
+	for (int i = 0; i < 24; i++) {
+		game.object[i].block = -1;
+	}
+
 }
 
 void createDefends() {
@@ -512,12 +562,19 @@ void createDefends() {
 			game.nPlayers++;
 		}
 	}
+
 	
 }
 
 
 void ObjectEffect(int block, int player) {
 	HANDLE thread;
+
+	//for (int i = 0; i < game.nRows; i++) {
+	//	for (int j = 0; j < game.nColumns; j++) {
+	//		if()
+	//	}
+	//}
 	switch (block)
 	{
 	case BLOCK_SHIELD:
@@ -552,10 +609,13 @@ void ObjectEffect(int block, int player) {
 }
 
 void joinGame(MSGdata data) {
+
+	TCHAR buffer[1024];
 	for (int i = 0; i < MAXCLIENTS; i++) {
 		if (users[i] == -1) {
 			users[i] = data.id;
-			_tprintf(TEXT("Player : %d connected."), data.id);
+			_stprintf_s(buffer, 1024, _T("Player : %d connected."), data.id);
+			sendMsg(buffer);
 			break;
 		}
 	}
@@ -737,11 +797,7 @@ LRESULT CALLBACK DialogConfig(HWND hWndDlg, UINT Msg, WPARAM wParam, LPARAM lPar
 
 
 
-void sendMsg(TCHAR  *t) {
-	SendDlgItemMessage(
-		hWnd, IDC_LIST, LB_ADDSTRING,
-		(WPARAM)0, (LPARAM)(t));
-}
+
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam) {
 	HDC hdc;

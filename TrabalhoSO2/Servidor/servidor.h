@@ -12,6 +12,7 @@ typedef struct {
 	int effect;
 	int speed;
 	BOOL alive;
+
 }DefenceShip;
 
 typedef struct {
@@ -27,7 +28,8 @@ typedef struct Objects {
 	int x, y;
 	int duration;
 	int block;
-
+	HANDLE threadId;
+	BOOL terminate;
 }Object, *pObject;
 
 
@@ -49,7 +51,7 @@ typedef struct Game {
 	DefenceShip playerShips[MAXCLIENTS];
 
 	InvadeShip invadeShips[MAXSHIPS];
-	Object *object;
+	Object object[24];
 	int fireTime;
 	int powerUpTime;
 
