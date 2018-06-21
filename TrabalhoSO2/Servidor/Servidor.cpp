@@ -8,12 +8,13 @@
 #include "resource.h"
 
 // CONFIG 
+TCHAR szProgName[] = TEXT("SPACE_PROG");
 int users[MAXCLIENTS];
 HINSTANCE hThisInst;
 int windowMode = 0;
 HWND hWnd;
 HMODULE DLL;
-
+HWND janelaglobal;
 // GAME
 Game game;
 GameInfo gameInfo;
@@ -424,20 +425,18 @@ DWORD WINAPI awaitMessages(LPVOID dados) {
 }
 
 
-void initGame(data dataGame) {
+void initGame(Game dataGame) {
 	game.nRows = dataGame.nRows;
 	game.nColumns = dataGame.nColumns;
 	game.Created = TRUE;
 	game.running = FALSE;
 	game.nPlayers = 0;
-	game.objectsDuration = dataGame.objectsDuration;
-	game.nObjects = dataGame.gameObjects;
 	game.difficult = dataGame.difficult;
 	game.lifes = dataGame.lifes;
 	game.fireTime = dataGame.fireTime;
 	game.powerUpTime = dataGame.powerUpTime;
-	game.nInvadesBasic = 0;
-	game.nInvadesDodge = 2;
+	game.nInvadesBasic = 2;
+	game.nInvadesDodge = 1;
 	game.boardGame = (int **)malloc(sizeof(int) * game.nRows);
 	for (int i = 0; i < game.nRows; i++) {
 		game.boardGame[i] = (int *)malloc(sizeof(int)* game.nColumns);
@@ -456,13 +455,11 @@ void initGame(data dataGame) {
 }
 
 void auxGameForNow() {
-	data dataGame;
+	Game dataGame;
 	dataGame.difficult = 1;
 	dataGame.nColumns = 30;
 	dataGame.nRows = 30;
-	dataGame.direction = 10;
 	dataGame.fireTime = 5;
-	dataGame.gameObjects = 4;
 	dataGame.lifes = 3;
 	dataGame.objectsDuration = 5;
 	dataGame.powerUpTime = 10;
@@ -688,6 +685,22 @@ LRESULT CALLBACK DialogConfig(HWND hWndDlg, UINT Msg, WPARAM wParam, LPARAM lPar
 	switch (Msg)
 	{
 	case WM_INITDIALOG:
+		TCHAR text[100];
+		_itot_s(10, text, 100, 10);
+		_stprintf_s(text, TEXT("%d"), 30);
+		SendMessage(GetDlgItem(hWndDlg, IDC_linhas), WM_SETTEXT, 0, (LPARAM)text);
+		SendMessage(GetDlgItem(hWndDlg, IDC_colunas), WM_SETTEXT, 0, (LPARAM)text);
+		_stprintf_s(text, TEXT("%d"), 1);
+		SendMessage(GetDlgItem(hWndDlg, IDC_basicas), WM_SETTEXT, 0, (LPARAM)text);
+		SendMessage(GetDlgItem(hWndDlg, IDC_esquivas), WM_SETTEXT, 0, (LPARAM)text);
+		_stprintf_s(text, TEXT("%d"), 3);
+		SendMessage(GetDlgItem(hWndDlg, IDC_dificuldade), WM_SETTEXT, 0, (LPARAM)text);
+		SendMessage(GetDlgItem(hWndDlg, IDC_vidas), WM_SETTEXT, 0, (LPARAM)text);
+		_stprintf_s(text, TEXT("%d"), 5);
+		SendMessage(GetDlgItem(hWndDlg, IDC_poweruptempo), WM_SETTEXT, 0, (LPARAM)text);
+		_stprintf_s(text, TEXT("%d"), 10);
+		SendMessage(GetDlgItem(hWndDlg, IDC_velDisparo), WM_SETTEXT, 0, (LPARAM)text);
+
 		return TRUE;
 
 	case WM_COMMAND:
@@ -710,7 +723,7 @@ LRESULT CALLBACK DialogConfig(HWND hWndDlg, UINT Msg, WPARAM wParam, LPARAM lPar
 			game.powerUpTime = _wtoi(aux);
 			GetDlgItemText(hWndDlg, IDC_velDisparo, aux, 20);
 			game.fireTime = _wtoi(aux);
-
+			initGame(game);
 
 
 			EndDialog(hWndDlg, 0);
@@ -722,7 +735,136 @@ LRESULT CALLBACK DialogConfig(HWND hWndDlg, UINT Msg, WPARAM wParam, LPARAM lPar
 	return FALSE;
 }
 
-int _tmain() {
+
+
+void sendMsg(TCHAR  *t) {
+	SendDlgItemMessage(
+		hWnd, IDC_LIST, LB_ADDSTRING,
+		(WPARAM)0, (LPARAM)(t));
+}
+
+LRESULT CALLBACK WndProc(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam) {
+	HDC hdc;
+	HANDLE listBox = NULL;
+	PAINTSTRUCT ps;
+	switch (messg) {
+	case WM_CREATE:
+		CreateWindow(TEXT("button"), TEXT("StartGame"),
+			WS_VISIBLE | WS_CHILD,
+			20, 50, 80, 25,
+			hWnd, (HMENU)1, NULL, NULL);
+
+		CreateWindow(TEXT("button"), TEXT("Config"),
+			WS_VISIBLE | WS_CHILD,
+			120, 50, 80, 25,
+			hWnd, (HMENU)2, NULL, NULL);
+		CreateWindow(TEXT("button"), TEXT("Quit"),
+			WS_VISIBLE | WS_CHILD,
+			220, 50, 80, 25,
+			hWnd, (HMENU)3, NULL, NULL);
+		listBox = CreateWindow(L"LISTBOX", L"",
+			WS_CHILD | WS_VISIBLE | LBS_NOSEL |
+			WS_SIZEBOX | LBS_HASSTRINGS | LBS_STANDARD,
+			500, 50, 500, 300,
+			hWnd, (HMENU)IDC_LIST, NULL, NULL);
+		break;
+	case WM_PAINT:
+		hdc = BeginPaint(hWnd, &ps);
+		EndPaint(hWnd, &ps);
+		break;
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		break;
+	case WM_COMMAND:
+		if (LOWORD(wParam) == 1) {
+
+			gameInfo.commandId = GAME_STARTED;
+			sendGameInfo(gameInfo);
+			SetEvent(eventReader);
+
+			Sleep(1000);
+			auxGameForNow();
+			gerarNavesInimigas();
+			createDefends();
+			TrincoOfThreads = CreateMutex(NULL, FALSE, NULL);
+
+			Sleep(3000);
+			HANDLE hGameThread = CreateThread(
+				NULL,
+				0,
+				gameThread,
+				NULL,
+				0,
+				0);
+			if (hGameThread == NULL) {
+				_tprintf(TEXT("[ERROR] Creating Shared Memory Thread... (%d)"), GetLastError());
+			}
+
+
+			TCHAR buffer[1024] = TEXT("");
+			int i = 0;
+			_stprintf_s(buffer, 1024, _T("Jogo Criado com sucesso."));
+			sendMsg(buffer);
+		}
+
+		if (LOWORD(wParam) == 2) {
+			DialogBox(hThisInst, (LPCWSTR)IDD_CONFIG, hWnd, (DLGPROC)DialogConfig);
+			TCHAR buffer[1024] = TEXT("");
+			int i = 0;
+			
+			_stprintf_s(buffer, 1024, _T("Configuração efectuada com sucesso!"), i, i);
+			sendMsg(buffer);
+		}
+		if (LOWORD(wParam) == 3) {
+			PostQuitMessage(0);
+		}
+	default:
+		// Neste exemplo, para qualquer outra mensagem (p.e. "minimizar","maximizar","restaurar")
+		// não é efectuado nenhum processamento, apenas se segue o "default" do Windows
+		return(DefWindowProc(hWnd, messg, wParam, lParam));
+		break;
+	}
+	return(0);}
+
+int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
+
+	MSG lpMsg; 
+	WNDCLASSEX wcApp; 
+	wcApp.cbSize = sizeof(WNDCLASSEX); 
+	wcApp.hInstance = hInst;
+						
+					
+	wcApp.lpszClassName = szProgName; 
+	wcApp.lpfnWndProc = WndProc; 
+							
+									
+	wcApp.style = CS_HREDRAW | CS_VREDRAW;
+										
+	wcApp.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wcApp.hIconSm = LoadIcon(NULL, IDI_INFORMATION);// "hIconSm" = handler do ícon pequeno
+	wcApp.hCursor = LoadCursor(NULL, IDC_ARROW); // "hCursor" = handler do cursor (rato)
+	wcApp.lpszMenuName = (LPCTSTR)(NULL); // Classe do menu que a janela pode ter
+	wcApp.cbClsExtra = 0; 
+	wcApp.cbWndExtra = 0; 
+	wcApp.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+
+	if (!RegisterClassEx(&wcApp))
+		return(0);
+
+	hWnd = CreateWindow(
+		szProgName, 
+		TEXT("SpaceGame"),
+		WS_OVERLAPPEDWINDOW, 
+		CW_USEDEFAULT, 
+		CW_USEDEFAULT, 
+		CW_USEDEFAULT, 
+		CW_USEDEFAULT,
+		(HWND)HWND_DESKTOP,
+		(HMENU)NULL, 
+		(HINSTANCE)hInst, 		
+		0); 
+	ShowWindow(hWnd, nCmdShow); // "hWnd"= handler da janela, devolvido por
+	UpdateWindow(hWnd); // Refrescar a janela (Windows envia à janela uma
 
 
 	DLL = LoadLibrary(_T("DLL"));
@@ -740,7 +882,7 @@ int _tmain() {
 	setGameInfo = (void(*)(GameInfo gi))GetProcAddress(DLL, "setInfoSHM");
 	startSemaphore = (HANDLE(*)(LPCWSTR semaphoreName))GetProcAddress(DLL, "startSyncSemaphore");
 	PlayersJoin = startMutex();
-	
+
 	if (writeB == NULL || readB == NULL || startgame == NULL || setGameInfo == NULL || startSemaphore == NULL) {
 		_tprintf(TEXT("[SHM ERROR] Loading functions from DLL (%d)\n"), GetLastError());
 		return 0;
@@ -750,114 +892,86 @@ int _tmain() {
 	initializeSharedMemory();
 	joinDefendShip();
 	ReleaseSemaphore(canWrite, 1, NULL);
-	int opc;
-	
-	while (1) {
-		
-		_tprintf(TEXT("Insert a option: "));
-		_tscanf_s(TEXT("%d"), &opc);
-		if (opc == 1) {
-			gameInfo.commandId = GAME_STARTED;
-			sendGameInfo(gameInfo);
-			SetEvent(eventReader);
-			break;
-		}
-	}
-	auxGameForNow();
-	gerarNavesInimigas();
-	createDefends();
-	TrincoOfThreads = CreateMutex(NULL, FALSE, NULL);
 
-	Sleep(3000);
-	HANDLE hGameThread = CreateThread(
-		NULL,
-		0,
-		gameThread,
-		NULL,
-		0,
-		0);
-	if (hGameThread == NULL) {
-		_tprintf(TEXT("[ERROR] Creating Shared Memory Thread... (%d)"), GetLastError());
-	}
-	WaitForSingleObject(hGameThread, INFINITE);
 
-	return 0;
+//	WaitForSingleObject(hGameThread, INFINITE);
+
+
+	while (GetMessage(&lpMsg, NULL, 0, 0)) {
+		TranslateMessage(&lpMsg); // Pré-processamento da mensagem (p.e. obter código
+								  // ASCII da tecla premida)
+		DispatchMessage(&lpMsg); // Enviar a mensagem traduzida de volta ao Windows, que
+								 // aguarda até que a possa reenviar à função de
+								 // tratamento da janela, CALLBACK TrataEventos (abaixo)
+	}
+	InvalidateRect(janelaglobal, NULL, 0);
+
+	// ============================================================================
+	// 6. Fim do programa
+	// ============================================================================
+	return((int)lpMsg.wParam); // Retorna sempre o parâmetro wParam da estrutura lpMsg
 }
 
-//int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdShow) {
+//int _tmain() {
 //
-//	MSG lpMsg; 
-//	WNDCLASSEX wcApp; 
-//	wcApp.cbSize = sizeof(WNDCLASSEX); 
-//	wcApp.hInstance = hInst;
-//						
-//					
-//	wcApp.lpszClassName = szProgName; 
-//	wcApp.lpfnWndProc = WndProc; 
-//							
-//									
-//	wcApp.style = CS_HREDRAW | CS_VREDRAW;
-//										
-//	wcApp.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-//	wcApp.hIconSm = LoadIcon(NULL, IDI_INFORMATION);// "hIconSm" = handler do ícon pequeno
-//	wcApp.hCursor = LoadCursor(NULL, IDC_ARROW); // "hCursor" = handler do cursor (rato)
-//	wcApp.lpszMenuName = (LPCTSTR)(IDD_MENU); // Classe do menu que a janela pode ter
-//	wcApp.cbClsExtra = 0; 
-//	wcApp.cbWndExtra = 0; 
-//	wcApp.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
 //
-//	if (!RegisterClassEx(&wcApp))
-//		return(0);
-//
-//	hWnd = CreateWindow(
-//		szProgName, 
-//		TEXT("SpaceGame"),
-//		WS_OVERLAPPEDWINDOW, 
-//		CW_USEDEFAULT, 
-//		CW_USEDEFAULT, 
-//		CW_USEDEFAULT, 
-//		CW_USEDEFAULT,
-//		(HWND)HWND_DESKTOP,
-//		(HMENU)NULL, 
-//		(HINSTANCE)hInst, 		
-//		0); 
-//	ShowWindow(hWnd, nCmdShow); // "hWnd"= handler da janela, devolvido por
-//								// "CreateWindow"; "nCmdShow"= modo de exibição (p.e.
-//								// normal/modal); é passado como parâmetro de WinMain()
-//	UpdateWindow(hWnd); // Refrescar a janela (Windows envia à janela uma
-//						// mensagem para pintar, mostrar dados, (refrescar)…
-//						// ============================================================================
-//						// 5. Loop de Mensagens
-//						// ============================================================================
-//						// O Windows envia mensagens às janelas (programas). Estas mensagens ficam numa fila de
-//						// espera até que GetMessage(...) possa ler "a mensagem seguinte"
-//						// Parâmetros de "getMessage":
-//						// 1)"&lpMsg"=Endereço de uma estrutura do tipo MSG ("MSG lpMsg" ja foi declarada no
-//						// início de WinMain()):
-//						// HWND hwnd handler da janela a que se destina a mensagem
-//						// UINT message Identificador da mensagem
-//						// WPARAM wParam Parâmetro, p.e. código da tecla premida
-//						// LPARAM lParam Parâmetro, p.e. se ALT também estava premida
-//						// DWORD time Hora a que a mensagem foi enviada pelo Windows
-//						// POINT pt Localização do mouse (x, y)
-//						// 2)handle da window para a qual se pretendem receber mensagens (=NULL se se pretendem
-//						// receber as mensagens para todas as janelas pertencentes à thread actual)
-//						// 3)Código limite inferior das mensagens que se pretendem receber
-//						// 4)Código limite superior das mensagens que se pretendem receber
-//						// NOTA: GetMessage() devolve 0 quando for recebida a mensagem de fecho da janela,
-//						// terminando então o loop de recepção de mensagens, e o programa
-//	while (GetMessage(&lpMsg, NULL, 0, 0)) {
-//		TranslateMessage(&lpMsg); // Pré-processamento da mensagem (p.e. obter código
-//								  // ASCII da tecla premida)
-//		DispatchMessage(&lpMsg); // Enviar a mensagem traduzida de volta ao Windows, que
-//								 // aguarda até que a possa reenviar à função de
-//								 // tratamento da janela, CALLBACK TrataEventos (abaixo)
+//	DLL = LoadLibrary(_T("DLL"));
+//	if (DLL == NULL) {
+//		_tprintf(_T("[ERROR] Loading DLL!!"));
+//		return 0;
 //	}
-//	InvalidateRect(janelaglobal, NULL, 0);
-//	// ============================================================================
-//	// 6. Fim do programa
-//	// ============================================================================
-//	return((int)lpMsg.wParam); // Retorna sempre o parâmetro wParam da estrutura lpMsg
+//	else
+//		_tprintf(_T("DLL lida com sucesso!\n"));
+//
+//	writeB = (BOOL(*)(MSGdata data))GetProcAddress(DLL, "writeBuffer");
+//	readB = (MSGdata(*)())GetProcAddress(DLL, "readBuffer");
+//	startgame = (BOOL(*)())GetProcAddress(DLL, "createGame");
+//	startMutex = (HANDLE(*)())GetProcAddress(DLL, "startSyncMutex");
+//	setGameInfo = (void(*)(GameInfo gi))GetProcAddress(DLL, "setInfoSHM");
+//	startSemaphore = (HANDLE(*)(LPCWSTR semaphoreName))GetProcAddress(DLL, "startSyncSemaphore");
+//	PlayersJoin = startMutex();
+//
+//	if (writeB == NULL || readB == NULL || startgame == NULL || setGameInfo == NULL || startSemaphore == NULL) {
+//		_tprintf(TEXT("[SHM ERROR] Loading functions from DLL (%d)\n"), GetLastError());
+//		return 0;
+//	}
+//
+//	startgame();
+//	initializeSharedMemory();
+//	joinDefendShip();
+//	ReleaseSemaphore(canWrite, 1, NULL);
+//	int opc;
+//
+//	while (1) {
+//
+//		_tprintf(TEXT("Insert a option: "));
+//		_tscanf_s(TEXT("%d"), &opc);
+//		if (opc == 1) {
+//			gameInfo.commandId = GAME_STARTED;
+//			sendGameInfo(gameInfo);
+//			SetEvent(eventReader);
+//			break;
+//		}
+//	}
+//	auxGameForNow();
+//	gerarNavesInimigas();
+//	createDefends();
+//	TrincoOfThreads = CreateMutex(NULL, FALSE, NULL);
+//
+//	Sleep(3000);
+//	HANDLE hGameThread = CreateThread(
+//		NULL,
+//		0,
+//		gameThread,
+//		NULL,
+//		0,
+//		0);
+//	if (hGameThread == NULL) {
+//		_tprintf(TEXT("[ERROR] Creating Shared Memory Thread... (%d)"), GetLastError());
+//	}
+//	WaitForSingleObject(hGameThread, INFINITE);
+//
+//	return 0;
 //}
 
 

@@ -21,7 +21,7 @@
 #define IDC_vidas                       1029
 #define IDC_poweruptempo                1030
 #define IDC_dificuldade                 1031
-
+#define IDC_LIST						1032
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
