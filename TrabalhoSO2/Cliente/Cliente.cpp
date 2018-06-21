@@ -320,6 +320,8 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		case VK_DOWN:
 			data.command = DOWN;
 			break;
+		case VK_SPACE:
+			data.type = SHOT;
 		default:
 			if(wParam == TEXT('C'))
 			data.type = JOIN_GAME;

@@ -40,7 +40,7 @@
 #define RIGHT 2
 #define UP    3
 #define DOWN  4
-
+#define SHOT  5
 
 #define BLOCK_EMPTY				0
 #define BLOCK_ICE				1

@@ -3,6 +3,16 @@
 #include <windows.h>
 #include "../util.h"
 #include "../DLL/DLL.h"
+
+
+typedef struct FriendShots {
+	int x, y;
+	int block;
+	HANDLE threadId;
+	BOOL terminate;
+}FriendShot, *pFriendShot;
+
+
 typedef struct {
 	int id;
 	TCHAR user[24];
@@ -12,7 +22,7 @@ typedef struct {
 	int effect;
 	int speed;
 	BOOL alive;
-
+	FriendShot friendshot[24];
 }DefenceShip;
 
 typedef struct {
@@ -33,6 +43,16 @@ typedef struct Objects {
 }Object, *pObject;
 
 
+typedef struct EnemyShots {
+	int x, y;
+	int block;
+	HANDLE threadId;
+	BOOL terminate;
+}EnemyShot, *pEnemyShot;
+
+
+
+
 
 typedef struct Game {
 
@@ -49,7 +69,7 @@ typedef struct Game {
 	int nRows, nColumns;
 	TCHAR user[24];
 	DefenceShip playerShips[MAXCLIENTS];
-
+	EnemyShot enemyshots[24];
 	InvadeShip invadeShips[MAXSHIPS];
 	Object object[24];
 	int fireTime;

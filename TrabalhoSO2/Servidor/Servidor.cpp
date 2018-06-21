@@ -79,6 +79,37 @@ void sendMsg(TCHAR  *t) {
 		(WPARAM)0, (LPARAM)(t));
 }
 
+
+int * colosionDefenceShips(int x, int y, int id) {
+	for (int i = x; i < x + 3; i++)
+		for (int j = y; j < y + 3; j++) {
+			if (game.boardGame[i][j] != BLOCK_EMPTY) {
+				switch (game.boardGame[i][j]) {
+				case BLOCK_ENEMYSHIP:
+					game.playerShips[id].vidas--;
+					break;
+				case BLOCK_ENEMYSHOT:
+					game.playerShips[id].vidas--;
+
+				default:
+					for (int z = x - 1; z < x + 2; z++) {
+						for (int b = y - 1; b < y + 2; b++) {
+							for (int obj = 0; obj < 20; obj++) {
+								if (game.object[obj].block != -1)
+									if (z == game.object[obj].x && b == game.object[obj].y) {
+										game.object[obj].terminate = TRUE;
+										ObjectEffect(game.boardGame[i][j], id);
+										break;
+									}
+								
+							}
+						}
+					}
+				}
+			}
+		}
+	return 0;
+}
 DWORD WINAPI gameThread(LPVOID params) {
 	_tprintf(TEXT("\n-----GAMETHREAD----\n"));
 	game.running = 1;
@@ -90,6 +121,12 @@ DWORD WINAPI gameThread(LPVOID params) {
 		//	manageObjects();
 
 		//	updateGameInfoBoard();
+
+		for (int i = 0; i < MAXCLIENTS; i++) {
+			if (game.playerShips[i].id != -1) {
+				colosionDefenceShips(game.playerShips[i].x, game.playerShips[i].y, i);
+			}
+		}
 		GameInfoSend();
 
 		//	verifyEndGame();
@@ -101,22 +138,6 @@ DWORD WINAPI gameThread(LPVOID params) {
 }
 
 
-int * colosionDefenceShips(int x, int y, int id) {
-	for (int i = x; i < x + 3; i++)
-		for (int j = y; j < y + 3; j++) {
-			if (game.boardGame[i][j] != BLOCK_EMPTY) {
-				switch (game.boardGame[i][j]) {
-				case BLOCK_ENEMYSHIP:
-					game.playerShips[id].vidas--;
-					break;
-				default:
-
-					break;
-				}
-			}
-		}
-	return 0;
-}
 BOOL endGame() {
 
 	for (int i = 0; i < MAXCLIENTS; i++)
@@ -181,11 +202,43 @@ void moveShip(int id, int dir) {
 			game.playerShips[i].y++;
 			break;
 		}
-
 		drawBlock(game.playerShips[i].x, game.playerShips[i].y, 1, BLOCK_DEFENCESHIP);
 	
 }
+DWORD WINAPI FriendFire(LPVOID data) {
+	FriendShot *fshot = (FriendShot *)data;
 
+	int x = fshot->x;
+	int y = fshot->y;
+	fshot->terminate = FALSE;
+
+	WaitForSingleObject(TrincoOfThreads, INFINITE);
+	game.boardGame[x][y] = BLOCK_FRIENDLYSHOT;
+	ReleaseMutex(TrincoOfThreads);
+	do {
+		Sleep(SHIP_SPEED * 10);
+		WaitForSingleObject(TrincoOfThreads, INFINITE);
+		game.boardGame[x][y] = BLOCK_EMPTY;
+		y--;
+		game.boardGame[x][y] = BLOCK_FRIENDLYSHOT;
+		fshot->y = y;
+		ReleaseMutex(TrincoOfThreads);
+	} while (y != game.nRows - 2 && fshot->terminate == FALSE);
+	Sleep(SHIP_SPEED * 10);
+	fshot->block == -1;
+	game.boardGame[x][y] = BLOCK_EMPTY;
+	return 0;
+
+}
+void fireShip(int id) {
+
+	for (int i = 0; i < 20; i++) {
+		if (game.playerShips[id].friendshot[i].block == -1) {
+			game.playerShips[id].friendshot[i].threadId = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)FriendFire, &game.playerShips[id].friendshot[i], 0, &threadIds);
+		}
+	}
+
+}
 void manageCommands(MSGdata data) {
 	switch (data.type) {
 	case EXIT:
@@ -209,6 +262,8 @@ void manageCommands(MSGdata data) {
 	case MOVE:
 		moveShip(data.id, data.command);
 		break;
+	case SHOT:
+		fireShip(data.id);
 	default:
 		break;
 	}
@@ -257,7 +312,7 @@ void drawBlock(int x, int y, int type, int blockType) {
 
 DWORD WINAPI threadPowerUp(LPVOID data) {
 
-	int player = *static_cast<int*>(data);
+	int player = (int)data;
 	int time = 0;
 	delete data;
 
@@ -286,18 +341,25 @@ DWORD WINAPI threadPowerUp(LPVOID data) {
 }
 
 DWORD WINAPI EnemyFire(LPVOID data) {
-	InvadeShip *enemyShip = (InvadeShip *)data;
-	int x = enemyShip->x + 2, y = enemyShip->y + +3;
+	int i = (int)data;
+	int x = game.enemyshots[i].x;
+	int y = game.enemyshots[i].y;
+	game.enemyshots[i].terminate = FALSE;
+
+	WaitForSingleObject(TrincoOfThreads, INFINITE);
 	game.boardGame[x][y] = BLOCK_ENEMYSHOT;
+	ReleaseMutex(TrincoOfThreads);
 	do {
 		Sleep(SHIP_SPEED * 10);
 		WaitForSingleObject(TrincoOfThreads, INFINITE);
 		game.boardGame[x][y] = BLOCK_EMPTY;
 		y++;
 		game.boardGame[x][y] = BLOCK_ENEMYSHOT;
+		 game.enemyshots[i].y = y;
 		ReleaseMutex(TrincoOfThreads);
-	} while (y != game.nRows - 2);
+	} while (y != game.nRows - 2 && game.enemyshots[i].terminate == FALSE);
 	Sleep(SHIP_SPEED * 10);
+	game.enemyshots[i].block == -1;
 	game.boardGame[x][y] = BLOCK_EMPTY;
 	return 0;
 
@@ -305,9 +367,10 @@ DWORD WINAPI EnemyFire(LPVOID data) {
 DWORD WINAPI PowerUpTimeWait(LPVOID data) {
 	Object obj;
 	do {
-		for (int i = 0; i < (sizeof(game.object) / sizeof(game.object[0])); i++) {
+		for (int i = 0; i < 24; i++) {
 			if (game.object[i].block == -1) {
-				game.object[i].threadId = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)PowerUp, &i, 0, NULL);
+				game.object[i].threadId = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)PowerUp, (LPVOID)i, 0, NULL);
+				break;
 			}
 		}
 		Sleep(game.powerUpTime * 1000);
@@ -328,7 +391,7 @@ DWORD WINAPI PowerUp(LPVOID data) {
 
 	game.object[i].x = x;
 	game.object[i].y = y;
-	game.object[i].terminate = false;
+	game.object[i].terminate = FALSE;
 	WaitForSingleObject(TrincoOfThreads, INFINITE);
 	drawBlock(x, y, 2, game.object[i].block);
 	ReleaseMutex(TrincoOfThreads);
@@ -342,9 +405,10 @@ DWORD WINAPI PowerUp(LPVOID data) {
 		game.object[i].x = x;
 		game.object[i].y = y;
 		ReleaseMutex(TrincoOfThreads);
-	} while (y != game.nRows - 1 || game.object[i].terminate == false);
+	} while (y != game.nRows - 1 && game.object[i].terminate == FALSE);
 	Sleep(SHIP_SPEED * 10);
 	drawBlock(x, y, 2, BLOCK_EMPTY);
+	game.object[i].block = -1;
 	return 0;
 
 }
@@ -390,14 +454,25 @@ DWORD WINAPI threadbasicas(LPVOID data) {
 			changedpos = false;
 		}
 		drawBlock(game.invadeShips[i].x, game.invadeShips[i].y, 1, BLOCK_ENEMYSHIP);
+		ReleaseMutex(TrincoOfThreads);
 		if (fire == 0) {
 			fire = game.fireTime;
-			CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)EnemyFire, &game.invadeShips[i], 0, &threadIds);
+
+			for (int j = 0; j < 24; j++) {
+				if (game.enemyshots[i].block == -1) {
+					game.enemyshots[i].x = game.invadeShips[i].x + 2;
+					game.enemyshots[i].y = game.invadeShips[i].y + 3;
+					game.enemyshots[i].threadId = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)EnemyFire, (LPVOID)j, 0, &threadIds);
+					
+					break;
+				}
+			}
+			
 
 		}
 		else
 			fire--;
-		ReleaseMutex(TrincoOfThreads);
+		
 	}
 
 	return 0;
@@ -446,14 +521,23 @@ DWORD WINAPI threadesquivas(LPVOID data) {
 		game.invadeShips[i].x = x + game.invadeShips[i].x;
 		game.invadeShips[i].y = y + game.invadeShips[i].y;
 		drawBlock(game.invadeShips[i].x, game.invadeShips[i].y, 1, BLOCK_ENEMYSHIP);
+		ReleaseMutex(TrincoOfThreads);
 		if (fire == 0) {
 			fire = 1.4*game.fireTime;
-			CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)EnemyFire, &game.invadeShips[i], 0, &threadIds);
+			for (int j = 0; j < 24; j++) {
+				if (game.enemyshots[i].block == -1) {
+					game.enemyshots[i].x = game.invadeShips[i].x + 2;
+					game.enemyshots[i].y = game.invadeShips[i].y + 3;
+					game.enemyshots[i].threadId = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)EnemyFire, (LPVOID)j, 0, &threadIds);
+					break;
+				}
+			}
+
 
 		}
 		else
 			fire--;
-		ReleaseMutex(TrincoOfThreads);
+
 	}
 
 	return 0;
@@ -548,9 +632,19 @@ void joinDefendShip() {
 	for (int i = 0; i < MAXCLIENTS; i++) {
 		users[i] = -1;
 	}
+	for (int i = 0; i < MAXCLIENTS; i++) {
+		for (int j = 0; i < 24; i++) {
+			game.playerShips[i].friendshot[j].block = -1;
+		}
+		
+	}
 
 	for (int i = 0; i < 24; i++) {
 		game.object[i].block = -1;
+	}
+
+	for (int i = 0; i < 24; i++) {
+		game.enemyshots[i].block = -1;
 	}
 
 }
@@ -579,28 +673,28 @@ void ObjectEffect(int block, int player) {
 	{
 	case BLOCK_SHIELD:
 		game.playerShips[player].effect = EFFECT_SHIELD;
-		thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadPowerUp, &player, 0, &timerThread);
+		thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadPowerUp, (LPVOID)player, 0, &timerThread);
 
 		break;
 	case BLOCK_ICE:
 		for (int i = 0; i < game.nInvadesBasic + game.nInvadesDodge; i++)
 			game.invadeShips[i].blocked = TRUE;
 		game.playerShips[player].effect = EFFECT_ICE;
-		thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadPowerUp, &player, 0, &timerThread);
+		thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadPowerUp, (LPVOID)player, 0, &timerThread);
 		break;
 	case BLOCK_BATTERY:
 		for (int i = 0; i < game.nPlayers; i++)
 			game.playerShips[i].speed *= 2;
 		game.playerShips[player].effect = EFFECT_BATTERY;
-		thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadPowerUp, &player, 0, &timerThread);
+		thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadPowerUp, (LPVOID)player, 0, &timerThread);
 		break;
 	case BLOCK_LIFE:
 		game.playerShips[player].vidas++;
-		thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadPowerUp, &player, 0, &timerThread);
+		thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadPowerUp, (LPVOID)player, 0, &timerThread);
 		break;
 	case BLOCK_ALCOOL:
 		game.playerShips[player].effect = EFFECT_ALCOOL;
-		thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadPowerUp, &player, 0, &timerThread);
+		thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)threadPowerUp, (LPVOID)player, 0, &timerThread);
 		break;
 
 	default:
