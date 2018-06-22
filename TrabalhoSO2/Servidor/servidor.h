@@ -15,10 +15,11 @@ typedef struct FriendShots {
 
 typedef struct {
 	int id;
+	int points;
 	TCHAR user[24];
 	int x;
 	int	y;
-	int	vidas;
+	int	lifes;
 	int effect;
 	int speed;
 	BOOL alive;

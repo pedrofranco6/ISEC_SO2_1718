@@ -27,6 +27,8 @@
 #define GAME_OVER		107
 #define REFRESH_GAME	108
 #define GAME_STARTED	109
+#define SHOT			110
+#define WIN_GAME		111
 
 //errors
 #define ERROR_CANNOT_CREATE_GAME	99
@@ -40,7 +42,7 @@
 #define RIGHT 2
 #define UP    3
 #define DOWN  4
-#define SHOT  5
+
 
 #define BLOCK_EMPTY				0
 #define BLOCK_ICE				1
@@ -77,7 +79,6 @@ typedef struct GameInfo {
 	int nRows;
 	int nColumns;
 	int boardGame[30][30];
-
 } GameInfo, *pGameInfo;
 
 typedef struct {

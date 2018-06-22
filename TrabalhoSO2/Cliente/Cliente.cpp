@@ -201,7 +201,7 @@ LRESULT CALLBACK StartWindow(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam
 	case WM_DESTROY:
 		EndDialog(hWnd, 0);
 		return 0;
-	
+
 	}
 	return (0);
 }
@@ -209,7 +209,7 @@ LRESULT CALLBACK StartWindow(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam
 
 LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam) {
 
-//	HDC device, auxDC;
+	//	HDC device, auxDC;
 	PAINTSTRUCT pt;
 	MSGdata data;
 	switch (messg) {
@@ -266,7 +266,7 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		SelectObject(memdc, hbitMore);
 		hbitMore = LoadBitmap(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_MORE));
 
-		hbrush = (HBRUSH) GetStockObject(WHITE_BRUSH);
+		hbrush = (HBRUSH)GetStockObject(WHITE_BRUSH);
 		SelectObject(memdc, hbrush);
 		PatBlt(memdc, 0, 0, 800, 650, PATCOPY);
 
@@ -301,7 +301,7 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 
 	case WM_KEYDOWN:
 	{
-		
+
 		data.type = MOVE;
 		switch (wParam) {
 
@@ -323,8 +323,8 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		case VK_SPACE:
 			data.type = SHOT;
 		default:
-			if(wParam == TEXT('C'))
-			data.type = JOIN_GAME;
+			if (wParam == TEXT('C'))
+				data.type = JOIN_GAME;
 		}
 		sendCommand(data);
 		break;
@@ -338,7 +338,7 @@ LRESULT CALLBACK TrataEventos(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lPara
 		return(DefWindowProc(hWnd, messg, wParam, lParam));
 		break;
 	}
-		
+
 	return(0);
 }
 
@@ -350,8 +350,8 @@ void sendCommand(MSGdata msg) {
 	ZeroMemory(&oOverlap, sizeof(oOverlap));
 	ResetEvent(hEventWrite);
 	oOverlap.hEvent = hEventWrite;
-
-	fSuccess = WriteFile(hPipe, &msg, sizeof(MSGdata), &cbWritten, &oOverlap);
+	msg.id =
+		fSuccess = WriteFile(hPipe, &msg, sizeof(MSGdata), &cbWritten, &oOverlap);
 
 	WaitForSingleObject(hEventWrite, INFINITE);
 
@@ -406,17 +406,40 @@ DWORD WINAPI ThreadReadGateway(void* data) {
 			RefreshMap(message);
 
 		}
+		if (message.commandId == GAME_OVER) {
+			int m = MessageBoxW(
+				hWnd,
+				L"You lost the game",
+				L"Lost",
+				MB_OK
+			);
+			if (m = MB_OK)
+				DestroyWindow(hWnd);
+				
+		}
+		if (message.commandId == WIN_GAME) {
+			int m = MessageBoxW(
+				hWnd,
+				L"You win the game",
+				L"Win",
+				MB_OK
+			);
+			if(m = MB_OK)
+				DestroyWindow(hWnd);
+
+		}
+
 		if (message.commandId == GAME_STARTED) {
 			SendMessage(hWnd, WM_COMMAND, IDC_QUIT, NULL);
 			startMainWindow();
 			RefreshMap(message);
 		}
-		if(message.commandId == ERROR_CANNOT_JOIN_GAME) {
+		if (message.commandId == ERROR_CANNOT_JOIN_GAME) {
 			SendDlgItemMessage(
 				hWnd, IDC_text, LB_ADDSTRING,
 				(WPARAM)0, (LPARAM)(TEXT("Game Already Started.")));
 		}
-		else if(message.commandId == WAIT_GAME) {
+		else if (message.commandId == WAIT_GAME) {
 			startMainWindow();
 			SendDlgItemMessage(
 				hWnd, IDC_text, LB_ADDSTRING,
@@ -507,16 +530,11 @@ LRESULT CALLBACK MainWindow(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam)
 	case WM_COMMAND:
 	{
 		switch (LOWORD(wParam)) {
-			//	case ID_FILE_EXIT:
-					//closeEverything();
 			break;
 		}
 
 	case WM_DESTROY:
 	{
-		// Destruir a janela e terminar o programa 
-		// "PostQuitMessage(Exit Status)"		
-	//	closeEverything();
 		break;
 	}
 
@@ -568,61 +586,62 @@ void bitmap(int left, int right, int top, int bot, HBITMAP hbit) {
 
 void RefreshMap(GameInfo gameInfo) {
 
-			hdc = GetDC(hWnd);
-			int x = 0, y = 0;
-			for (int l = 0; l < gameInfo.nRows; l++) {
-				for (int c = 0; c < gameInfo.nColumns; c++) {
+	hdc = GetDC(hWnd);
+	int x = 0, y = 0;
+	for (int l = 0; l < gameInfo.nRows; l++) {
+		for (int c = 0; c < gameInfo.nColumns; c++) {
 
-					switch (gameInfo.boardGame[c][l]) {
-					case BLOCK_EMPTY:
-						bitmap(x, x + 20, y, y + 20, hbitEmpty);
-						break;
-					case BLOCK_WALL:
-						bitmap(x, x + 20, y, y + 20, hbitWall);
-						break;
-					case BLOCK_ENEMYSHIP:
-						bitmap(x, x + 20, y, y + 20, hbitEnemyShip);
+			switch (gameInfo.boardGame[c][l]) {
+			case BLOCK_EMPTY:
+				bitmap(x, x + 20, y, y + 20, hbitEmpty);
+				break;
+			case BLOCK_WALL:
+				bitmap(x, x + 20, y, y + 20, hbitWall);
+				break;
+			case BLOCK_ENEMYSHIP:
+				bitmap(x, x + 20, y, y + 20, hbitEnemyShip);
 
-						break;
-					case BLOCK_ENEMYSHOT:
-						bitmap(x, x + 20, y, y + 20, hbitEnemyShot);
-						break;
-					case BLOCK_DEFENCESHIP:
-						bitmap(x, x + 20, y, y + 20, hbitDefenceShip);
-						break;
-					case BLOCK_FRIENDLYSHOT:
-						bitmap(x, x + 20, y, y + 20, hbitDefenceShot);
-						break;
-					case BLOCK_SHIELD:
-						bitmap(x, x + 20, y, y + 20, hbitShield);
-						break;
-					case BLOCK_ALCOOL:
-						bitmap(x, x + 20, y, y + 20, hbitAlcool);
-						break;
-					case BLOCK_BATTERY:
-						bitmap(x, x + 20, y, y + 20, hbitBattery);
-						break;
-					case BLOCK_MORE:
-						bitmap(x, x + 20, y, y + 20, hbitMore);
-						break;
-					case BLOCK_ICE:
-						bitmap(x, x + 20, y, y + 20, hbitIce);
-						break;
-					case BLOCK_LIFE:
-						bitmap(x, x + 20, y, y + 20, hbitLife);
-						break;
-					}
-
-					x += 20;
-				}
-				x = 0;
-				y += 20;
+				break;
+			case BLOCK_ENEMYSHOT:
+				bitmap(x, x + 20, y, y + 20, hbitEnemyShot);
+				break;
+			case BLOCK_DEFENCESHIP:
+				bitmap(x, x + 20, y, y + 20, hbitDefenceShip);
+				break;
+			case BLOCK_FRIENDLYSHOT:
+				bitmap(x, x + 20, y, y + 20, hbitDefenceShot);
+				break;
+			case BLOCK_SHIELD:
+				bitmap(x, x + 20, y, y + 20, hbitShield);
+				break;
+			case BLOCK_ALCOOL:
+				bitmap(x, x + 20, y, y + 20, hbitAlcool);
+				break;
+			case BLOCK_BATTERY:
+				bitmap(x, x + 20, y, y + 20, hbitBattery);
+				break;
+			case BLOCK_MORE:
+				bitmap(x, x + 20, y, y + 20, hbitMore);
+				break;
+			case BLOCK_ICE:
+				bitmap(x, x + 20, y, y + 20, hbitIce);
+				break;
+			case BLOCK_LIFE:
+				bitmap(x, x + 20, y, y + 20, hbitLife);
+				break;
 			}
-			ReleaseDC(hWnd, hdc);
-			InvalidateRect(NULL, NULL, TRUE);
+
+			x += 20;
+		}
+		x = 0;
+		y += 20;
+	}
+
+	ReleaseDC(hWnd, hdc);
+	InvalidateRect(NULL, NULL, TRUE);
 
 
-	
+
 }
 
 void startMainWindow() {

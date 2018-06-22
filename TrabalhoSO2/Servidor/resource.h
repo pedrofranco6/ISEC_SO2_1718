@@ -1,4 +1,3 @@
-#pragma once
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by ClienteGUI.rc
@@ -15,13 +14,14 @@
 #define IDC_nRows7                      1011
 #define IDC_nRows8                      1012
 #define IDC_colunas                     1016
-#define IDC_basicas                     1023
-#define IDC_esquivas                    1024
+#define IDC_nbasicas                    1023
+#define IDC_nesquivas                   1024
 #define IDC_velDisparo                  1028
 #define IDC_vidas                       1029
 #define IDC_poweruptempo                1030
 #define IDC_dificuldade                 1031
-#define IDC_LIST						1032
+#define IDC_LIST                        1032
+
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
