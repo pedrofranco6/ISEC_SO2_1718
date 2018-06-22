@@ -9,7 +9,7 @@
 
 // CONFIG 
 TCHAR szProgName[] = TEXT("SPACE_PROG");
-int users[MAXCLIENTS];
+
 HINSTANCE hThisInst;
 int windowMode = 0;
 HWND hWnd;
@@ -18,7 +18,7 @@ HWND janelaglobal;
 // GAME
 Game game;
 GameInfo gameInfo;
-
+int users[MAXCLIENTS];
 int invadeShipId;
 //DLL FUNCTIONS
 BOOL(*startgame) ();
@@ -41,7 +41,6 @@ HANDLE eventWriter;
 HANDLE eventReaderFromBuffer;
 HANDLE eventWriterFromBuffer;
 HANDLE canWrite, canRead;
-HANDLE PlayersJoin;
 // FUNCTIONS
 void GameInfoSend() {
 
@@ -61,19 +60,6 @@ void GameInfoSend() {
 	ReleaseMutex(TrincoOfThreads);
 }
 
-
-void seeIfColisionsHappen() {
-	for (int i = 0; i < game.nRows; i++) {
-		for (int j = 0; j < game.nColumns; j++) {
-			if (game.boardGame[i][j] != BLOCK_EMPTY) {
-				switch (game.boardGame[i][j]) {
-				case BLOCK_ENEMYSHIP:
-					break;
-				}
-			}
-		}
-	}
-}
 void sendMsg(TCHAR  *t) {
 	SendDlgItemMessage(
 		hWnd, IDC_LIST, LB_ADDSTRING,
@@ -144,14 +130,10 @@ BOOL endGame() {
 DWORD WINAPI gameThread(LPVOID params) {
 	_tprintf(TEXT("\n-----GAMETHREAD----\n"));
 	game.running = 1;
-	//	gameCount = 0;
+
 	gameInfo.commandId = REFRESH_GAME;
 	while (game.running == 1) {
-		//	gameCount++;
-		//	moveShips();
-		//	manageObjects();
 
-		//	updateGameInfoBoard();
 
 		for (int i = 0; i < MAXCLIENTS; i++) {
 			if (game.playerShips[i].id != -1) {
@@ -168,9 +150,6 @@ DWORD WINAPI gameThread(LPVOID params) {
 
 			ReleaseMutex(TrincoOfThreads);
 		}
-
-	//	Sleep(450);
-
 	}
 	return 0;
 }
@@ -298,14 +277,8 @@ void manageCommands(MSGdata data) {
 
 		break;
 	case JOIN_GAME:
-		//	if (game.Created && !game.running) {
 		joinGame(data);
 
-		//	}
-		//	else {
-		//		gameInfo.commandId = ERROR_CANNOT_JOIN_GAME;
-		//		gameInfo.Id = dataGame.playerId;
-		//		setGameInfo(gameInfo);
 		//	}
 		break;
 	case SCORES:
@@ -593,18 +566,6 @@ DWORD WINAPI threadesquivas(LPVOID data) {
 	return 0;
 }
 
-DWORD WINAPI awaitMessages(LPVOID dados) {
-
-	int optionAux = 0;
-	MSGdata option;
-	while (1) {
-
-		option = readB();
-		_tprintf(TEXT("\n chegou do gateway: %d\n"), option.type);
-	}
-}
-
-
 void initGame(Game dataGame) {
 	game.nRows = dataGame.nRows;
 	game.nColumns = dataGame.nColumns;
@@ -844,7 +805,6 @@ void sendGameInfo(GameInfo gi) {
 void initializeSharedMemory() {
 
 	BOOL(*createFileMap)();
-	WaitForSingleObject(PlayersJoin, INFINITE);
 
 	_tprintf(TEXT("STARTING SHARED MEMORY....................\n"));
 	//CREATEFILEMAP
@@ -1075,7 +1035,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nC
 	startMutex = (HANDLE(*)())GetProcAddress(DLL, "startSyncMutex");
 	setGameInfo = (void(*)(GameInfo gi))GetProcAddress(DLL, "setInfoSHM");
 	startSemaphore = (HANDLE(*)(LPCWSTR semaphoreName))GetProcAddress(DLL, "startSyncSemaphore");
-	PlayersJoin = startMutex();
 
 	if (writeB == NULL || readB == NULL || startgame == NULL || setGameInfo == NULL || startSemaphore == NULL) {
 		_tprintf(TEXT("[SHM ERROR] Loading functions from DLL (%d)\n"), GetLastError());

@@ -413,7 +413,7 @@ DWORD WINAPI ThreadReadGateway(void* data) {
 				L"Lost",
 				MB_OK
 			);
-			if (m = MB_OK)
+			if (m == MB_OK)
 				DestroyWindow(hWnd);
 				
 		}
@@ -424,7 +424,7 @@ DWORD WINAPI ThreadReadGateway(void* data) {
 				L"Win",
 				MB_OK
 			);
-			if(m = MB_OK)
+			if(m == MB_OK)
 				DestroyWindow(hWnd);
 
 		}
